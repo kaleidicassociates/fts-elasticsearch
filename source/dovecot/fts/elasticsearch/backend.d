@@ -7,13 +7,15 @@ import dovecot.api;
 import dovecot.fts.elasticsearch.plugin;
 import dovecot.fts.elasticsearch.conn;
 
+enum MAILBOX_GUID_HEX_LENGTH = 1024;
+enum ELASTICSEARCH_BULK_SIZE = 1000;
+
 alias fts_backend=struct_fts_backend;
 alias mailbox = struct_mailbox;
 alias fts_backend_update_context = struct_fts_backend_update_context;
-alias mail_search_arg = struct_mail_search_arg;
-alias fts_result = struct_fts_result;
+alias fts_result = FTSResult;
 alias fts_backend_build_key = struct_fts_backend_build_key;
-alias fts_lookup_flags = struct_fts_lookup_flags;
+alias fts_lookup_flags = FTSLookupFlag;
 
 /* default bulk index size of 5MB */
  //#define ELASTICSEARCH_BULK_SIZE 5000000
@@ -160,17 +162,17 @@ const(char)* es_query_escape(const(char)* str)
     return es_escape(str, es_query_escape_chars);
 }
 
-fts_backend *fts_backend_elasticsearch_alloc()
+extern(C) fts_backend *fts_backend_elasticsearch_alloc()
 {
     elasticsearch_fts_backend *backend;
 
-    backend = i_new(elasticsearch_fts_backend, 1);
+    backend = cast(elasticsearch_fts_backend*)i_new(backend, 1);
     backend.backend = fts_backend_elasticsearch;
 
     return &backend.backend;
 }
 
-int fts_backend_elasticsearch_init(fts_backend *_backend, const(char)** error_r)
+extern(C) int fts_backend_elasticsearch_init(fts_backend *_backend, const(char)** error_r)
 {
     elasticsearch_fts_backend *backend = null;
     fts_elasticsearch_user *fuser = null;
@@ -184,7 +186,7 @@ int fts_backend_elasticsearch_init(fts_backend *_backend, const(char)** error_r)
         return -1;
     }
     
-    fuser = FTS_ELASTICSEARCH_USER_CONTEXT(_backend.ns.user);
+    //fuser = FTS_ELASTICSEARCH_USER_CONTEXT(_backend.ns.user);
 
     if (fuser is null) {
         *error_r = "Invalid fts_elasticsearch setting";
@@ -195,12 +197,12 @@ int fts_backend_elasticsearch_init(fts_backend *_backend, const(char)** error_r)
     return elasticsearch_connection_init(fuser.set.url, fuser.set.debug_, &backend.elasticsearch_conn, error_r);
 }
 
-void fts_backend_elasticsearch_deinit(fts_backend *_backend)
+extern(C) void fts_backend_elasticsearch_deinit(fts_backend *_backend)
 {
     i_free(_backend);
 }
 
-void fts_backend_elasticsearch_bulk_end(elasticsearch_fts_backend_update_context *_ctx)
+extern(C) void fts_backend_elasticsearch_bulk_end(elasticsearch_fts_backend_update_context *_ctx)
 {
     elasticsearch_fts_backend_update_context *ctx = null;
 
@@ -221,16 +223,16 @@ void fts_backend_elasticsearch_bulk_end(elasticsearch_fts_backend_update_context
     }
 }
 
-int fts_backend_elasticsearch_get_last_uid(fts_backend*_backend, mailbox* box, uint* last_uid_r)
+extern(C) int fts_backend_elasticsearch_get_last_uid(fts_backend*_backend, mailbox* box, int* last_uid_r)
 {
-    fts_index_header hdr;
+    struct_fts_index_header hdr;
     elasticsearch_fts_backend *backend = null;
     const(char)* box_guid = null;
     int ret;
 
     /* ensure our backend has been initialised */
     if (_backend is null || box is null || last_uid_r is null) {
-        i_error("fts_elasticsearch: critical error in get_last_uid");
+        i_error("fts_elasticsearch: critical error in get_last_uid".ptr);
 
         return -1;
     } else {
@@ -257,49 +259,61 @@ int fts_backend_elasticsearch_get_last_uid(fts_backend*_backend, mailbox* box, u
     } 
 
     if (fts_mailbox_get_guid(box, &box_guid) < 0) {
-        i_error("fts-elasticsearch: get_last_uid: failed to get mbox guid");
+        i_error("fts-elasticsearch: get_last_uid: failed to get mbox guid".ptr);
 
         return -1;
     }
 
     /* call ES */
-    ret = elasticsearch_connection_last_uid(backend.elasticsearch_conn,
-        JSON_LAST_UID, box_guid);
+    ret = elasticsearch_connection_last_uid(backend.elasticsearch_conn, JSON_LAST_UID.ptr, box_guid);
 
     if (ret > 0) {
         *last_uid_r = ret;
 
-        fts_index_set_last_uid(box, *last_uid_r);
+        //fts_index_set_last_uid(box, *last_uid_r);
 
         return 0;
     }
     
     *last_uid_r = 0;
 
-    fts_index_set_last_uid(box, *last_uid_r);
+    //fts_index_set_last_uid(box, *last_uid_r);
 
     return 0;
 }
 
-fts_backend_update_context* fts_backend_elasticsearch_update_init(fts_backend *_backend)
+auto i_new(T)(T* t, int num)
 {
-    elasticsearch_fts_backend_update_context* ctx = null;
+    return calloc(T.sizeof,num);
+}
 
-    ctx = i_new(elasticsearch_fts_backend_update_context, 1);
+auto i_free(T)(T* t)
+{
+    free(t);
+}
+
+extern(C) fts_backend_update_context* fts_backend_elasticsearch_update_init(fts_backend *_backend)
+{
+    elasticsearch_fts_backend_update_context* ctx;
+    ctx = cast(elasticsearch_fts_backend_update_context*) i_new(ctx, 1);
     ctx.ctx.backend = _backend;
 
     /* allocate strings for building messages and multi-part messages
      * with a sensible initial size. */
-    ctx.current_field = str_new(default_pool, 1024);
-    ctx.temp_body = str_new(default_pool, 1024 * 64);
-    ctx.temp = str_new(default_pool, 1024 * 64);
-    ctx.json_request = str_new(default_pool, 1024 * 64);
+    //ctx.current_field = str_new(default_pool, 1024);
+    //ctx.temp_body = str_new(default_pool, 1024 * 64);
+    //ctx.temp = str_new(default_pool, 1024 * 64);
+    //ctx.json_request = str_new(default_pool, 1024 * 64);
+    ctx.current_field = str_new( 1024);
+    ctx.temp_body = str_new( 1024 * 64);
+    ctx.temp = str_new( 1024 * 64);
+    ctx.json_request = str_new( 1024 * 64);
     ctx.request_size = 0;
 
     return &ctx.ctx;
 }
 
-int fts_backend_elasticsearch_update_deinit(fts_backend_update_context* _ctx)
+extern(C) int fts_backend_elasticsearch_update_deinit(fts_backend_update_context* _ctx)
 {
     elasticsearch_fts_backend_update_context *ctx = null;
     elasticsearch_fts_backend *backend = null;
@@ -320,7 +334,7 @@ int fts_backend_elasticsearch_update_deinit(fts_backend_update_context* _ctx)
         fts_backend_elasticsearch_bulk_end(ctx);
 
         /* cleanup */
-        memset(ctx.box_guid, 0, sizeof(ctx.box_guid));
+        memset(ctx.box_guid.ptr, 0, ctx.box_guid.sizeof);
         str_free(&ctx.current_field);
         str_free(&ctx.temp_body);
         str_free(&ctx.temp);
@@ -338,7 +352,12 @@ int fts_backend_elasticsearch_update_deinit(fts_backend_update_context* _ctx)
     return 0;
 }
 
-void fts_backend_elasticsearch_update_set_mailbox(fts_backend_update_context *_ctx, mailbox *box)
+void i_assert(bool condition)
+{
+    import std.exception:enforce;
+    enforce(condition);
+}
+extern(C) void fts_backend_elasticsearch_update_set_mailbox(fts_backend_update_context *_ctx, mailbox *box)
 {
     elasticsearch_fts_backend_update_context *ctx = null;
     const(char)* box_guid = null;
@@ -349,7 +368,7 @@ void fts_backend_elasticsearch_update_set_mailbox(fts_backend_update_context *_c
         /* update_set_mailbox has been called but the previous uid is not 0;
          * clean up from our previous mailbox indexing. */
         if (ctx.prev_uid != 0) {
-            fts_index_set_last_uid(ctx.prev_box, ctx.prev_uid);
+            //fts_index_set_last_uid(ctx.prev_box, ctx.prev_uid);
 
             ctx.prev_uid = 0;
         }
@@ -362,11 +381,11 @@ void fts_backend_elasticsearch_update_set_mailbox(fts_backend_update_context *_c
             }
 
             /* store the current mailbox we're on in our state struct */
-            i_assert(strlen(box_guid) == sizeof(ctx.box_guid) - 1);
-            memcpy(ctx.box_guid, box_guid, sizeof(ctx.box_guid) - 1);
+            i_assert(strlen(box_guid) == ctx.box_guid.sizeof - 1);
+            memcpy(ctx.box_guid.ptr, box_guid, ctx.box_guid.sizeof - 1);
         } else {
             /* a box of null appears to indicate that indexing is complete. */
-            memset(ctx.box_guid, 0, sizeof(ctx.box_guid));
+            memset(ctx.box_guid.ptr, 0, ctx.box_guid.sizeof);
         }
 
         ctx.prev_box = box;
@@ -377,29 +396,30 @@ void fts_backend_elasticsearch_update_set_mailbox(fts_backend_update_context *_c
     }
 }
 
-void elasticsearch_add_update_field(string_t *temp, string_t *message, string_t *field, string_t *value)
+extern(C) void elasticsearch_add_update_field(string_t *temp, string_t *message, string_t *field, string_t *value)
 {
     str_truncate(temp, 0);
 
-    str_printfa(temp,
+/*    str_printfa(temp,
                 ", \"%s\": \"%s\"",
                 es_replace(str_c(field), es_field_escape_chars),
                 es_update_escape(str_c(value)));
-
+*/
     str_append_str(message, temp);
 }
 
-void fts_backend_elasticsearch_bulk_start(elasticsearch_fts_backend_update_context *_ctx, uint uid, string_t *json_request,
+extern(C) void fts_backend_elasticsearch_bulk_start(elasticsearch_fts_backend_update_context *_ctx, uint uid, string_t *json_request,
                                    const(char)* action_name)
 {
     elasticsearch_fts_backend_update_context *ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-    string_t *temp = str_new(default_pool, 1024);
+    //string_t *temp = str_new(default_pool, 1024);
+    string_t *temp = str_new(1024);
 
     /* track that we've added documents */
     ctx.documents_added = true;
 
     /* add the header that starts the bulk transaction */
-    str_printfa(temp, JSON_BULK_HEADER, action_name, ctx.box_guid, "mail", uid);
+    //str_printfa(temp, JSON_BULK_HEADER, action_name, ctx.box_guid, "mail", uid);
     str_append_str(json_request, temp);
     str_append(json_request, "\n");
 
@@ -409,7 +429,7 @@ void fts_backend_elasticsearch_bulk_start(elasticsearch_fts_backend_update_conte
         str_truncate(temp, 0);
 
         /* add the first two fields; these are static on every message. */
-        str_printfa(temp, "{ \"uid\": %d, \"box\": \"%s\"", uid, ctx.box_guid);
+        //str_printfa(temp, "{ \"uid\": %d, \"box\": \"%s\"", uid, ctx.box_guid);
         str_append_str(json_request, temp);
     }
 
@@ -417,10 +437,10 @@ void fts_backend_elasticsearch_bulk_start(elasticsearch_fts_backend_update_conte
     str_free(&temp);
 }
 
-void fts_backend_elasticsearch_uid_changed(fts_backend_update_context *_ctx, uint uid)
+extern(C) void fts_backend_elasticsearch_uid_changed(fts_backend_update_context *_ctx, uint uid)
 {
     elasticsearch_fts_backend_update_context *ctx = cast(elasticsearch_fts_backend_update_context*) _ctx;
-    elasticsearch_fts_backend *backend = cast(elasticsearch_fts_backend *)_ctx.backend;
+    //elasticsearch_fts_backend *backend = (*(cast(elasticsearch_fts_backend *)_ctx)).backend;
 
     if (ctx.documents_added) {
         /* this is the end of an old message. nb: the last message to be indexed
@@ -434,8 +454,7 @@ void fts_backend_elasticsearch_uid_changed(fts_backend_update_context *_ctx, uin
         fts_backend_elasticsearch_bulk_end(ctx);
 
         /* do an early post */
-        elasticsearch_connection_update(backend.elasticsearch_conn,
-                                        str_c(ctx.json_request));
+        //elasticsearch_connection_update(backend_elasticsearch_conn, str_c(ctx.json_request));
 
         /* reset our tracking variables */
         str_truncate(ctx.json_request, 0);
@@ -447,7 +466,7 @@ void fts_backend_elasticsearch_uid_changed(fts_backend_update_context *_ctx, uin
     fts_backend_elasticsearch_bulk_start(ctx, uid, ctx.json_request, "index");
 }
 
-bool fts_backend_elasticsearch_update_set_build_key(fts_backend_update_context *_ctx, const(fts_backend_build_key)* key)
+extern(C) int fts_backend_elasticsearch_update_set_build_key(fts_backend_update_context *_ctx, const(fts_backend_build_key)* key)
 {
     elasticsearch_fts_backend_update_context* ctx = null;
 
@@ -463,27 +482,29 @@ bool fts_backend_elasticsearch_update_set_build_key(fts_backend_update_context *
         fts_backend_elasticsearch_uid_changed(_ctx, key.uid);
     }
 
-    switch (key.type) {
-    case FTS_BACKEND_BUILD_KEY_HDR: /* fall through */
-    case FTS_BACKEND_BUILD_KEY_MIME_HDR:
-        str_printfa(ctx.current_field, "%s", t_str_lcase(key.hdr_name));
+    switch (key.type) with(FTSBackendBuildKeyType)
+    {
+        case header: /* fall through */
+        case mimeHeader:
+            //str_printfa(ctx.current_field, "%s", t_str_lcase(key.hdr_name));
 
-        break;
-    case FTS_BACKEND_BUILD_KEY_BODY_PART:
-        if (!ctx.body_open) {
-            ctx.body_open = true;
-            str_append(ctx.current_field, "body");
-        }
+            break;
+        case bodyPart:
+            if (!ctx.body_open) {
+                ctx.body_open = true;
+                str_append(ctx.current_field, "body");
+            }
 
-        break;
-    case FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY:
-        i_unreached();
+            break;
+        case bodyPartBinary:
+        default:
+            //i_unreached();
     }
 
     return true;
 }
 
-int fts_backend_elasticsearch_update_build_more(fts_backend_update_context* _ctx, const(ubyte)* data, size_t size)
+extern(C) int fts_backend_elasticsearch_update_build_more(fts_backend_update_context* _ctx, const(ubyte)* data, int size)
 {
     elasticsearch_fts_backend_update_context *ctx;
 
@@ -491,7 +512,7 @@ int fts_backend_elasticsearch_update_build_more(fts_backend_update_context* _ctx
         ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
 
         /* build more message body */
-        str_append_n(ctx.temp_body, data, size);
+        str_append_n(ctx.temp_body, cast(const(void)*)data, cast(int)size);
 
         /* keep track of the total request size for chunking */
         ctx.request_size += size;
@@ -504,7 +525,7 @@ int fts_backend_elasticsearch_update_build_more(fts_backend_update_context* _ctx
     }
 }
 
-void fts_backend_elasticsearch_update_unset_build_key(fts_backend_update_context* _ctx)
+extern(C) void fts_backend_elasticsearch_update_unset_build_key(fts_backend_update_context* _ctx)
 {
     elasticsearch_fts_backend_update_context *ctx = null;
 
@@ -520,7 +541,7 @@ void fts_backend_elasticsearch_update_unset_build_key(fts_backend_update_context
     }
 }
 
-void fts_backend_elasticsearch_update_expunge(fts_backend_update_context *_ctx, uint uid)
+extern(C) void fts_backend_elasticsearch_update_expunge(fts_backend_update_context *_ctx, int uid)
 {
     elasticsearch_fts_backend_update_context *ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
 
@@ -531,7 +552,7 @@ void fts_backend_elasticsearch_update_expunge(fts_backend_update_context *_ctx, 
     fts_backend_elasticsearch_bulk_start(ctx, uid, ctx.json_request, "delete");
 }
 
-int fts_backend_elasticsearch_refresh(fts_backend *_backend)
+extern(C) int fts_backend_elasticsearch_refresh(fts_backend *_backend)
 {
     elasticsearch_fts_backend *backend = cast(elasticsearch_fts_backend *)_backend;
 
@@ -540,17 +561,17 @@ int fts_backend_elasticsearch_refresh(fts_backend *_backend)
     return 0;
 }
 
-int fts_backend_elasticsearch_rescan(fts_backend *backend)
+extern(C) int fts_backend_elasticsearch_rescan(fts_backend *backend)
 {    
     return fts_backend_reset_last_uids(backend);
 }
 
-int fts_backend_elasticsearch_optimize(fts_backend *backend)
+extern(C) int fts_backend_elasticsearch_optimize(fts_backend *backend)
 {
     return 0;
 }
 
-bool elasticsearch_add_definite_query(mail_search_arg *arg, string_t *value, string_t *fields)
+extern(C) bool elasticsearch_add_definite_query(struct_mail_search_arg *arg, string_t *value, string_t *fields)
 {
     /* validate our input */
     if (arg is null || value is null || fields is null) {
@@ -559,46 +580,47 @@ bool elasticsearch_add_definite_query(mail_search_arg *arg, string_t *value, str
         return false;
     }
 
-    switch (arg.type) {
-    case SEARCH_TEXT:
-        /* we don't actually have to do anything here; leaving the fields
-         * array blank is sufficient to cause full text search with ES */
+    switch (arg.type)with(mail_search_arg_type)
+    {
+        case SEARCH_TEXT:
+            /* we don't actually have to do anything here; leaving the fields
+             * array blank is sufficient to cause full text search with ES */
 
-        break;
-    case SEARCH_BODY:
-        /* SEARCH_BODY has a hdr_field_name of null. we append a comma here 
-         * because body can be selected in addition to other fields. it's 
-         * trimmed later before being passed to ES if it's the last element. */
-        str_append(fields, `"body",`);
+            break;
+        case SEARCH_BODY:
+            /* SEARCH_BODY has a hdr_field_name of null. we append a comma here 
+             * because body can be selected in addition to other fields. it's 
+             * trimmed later before being passed to ES if it's the last element. */
+            str_append(fields, `"body",`);
 
-        break;
-    case SEARCH_HEADER: /* fall through */
-    case SEARCH_HEADER_ADDRESS: /* fall through */
-    case SEARCH_HEADER_COMPRESS_LWSP:
-        if (!fts_header_want_indexed(arg.hdr_field_name)) {
-            i_debug("fts-elasticsearch: field %s was skipped", arg.hdr_field_name);
+            break;
+        case SEARCH_HEADER: /* fall through */
+        case SEARCH_HEADER_ADDRESS: /* fall through */
+        case SEARCH_HEADER_COMPRESS_LWSP:
+            if (!fts_header_want_indexed(arg.hdr_field_name)) {
+                //i_debug("fts-elasticsearch: field %s was skipped", arg.hdr_field_name);
 
+                return false;
+            }
+
+            str_append(fields, "\"");
+            str_append(fields, t_str_lcase(es_query_escape(arg.hdr_field_name)));
+            str_append(fields, "\",");
+
+            break;
+        default:
             return false;
-        }
-
-        str_append(fields, "\"");
-        str_append(fields, t_str_lcase(es_query_escape(arg.hdr_field_name)));
-        str_append(fields, "\",");
-
-        break;
-    default:
-        return false;
     }
 
-    if (arg.match_not) {
+/*    if (arg.match_not) {
         i_debug("fts-elasticsearch: arg.match_not is true");
     }
-    
+  */  
 
     return true;
 }
-
-bool elasticsearch_add_definite_query_args(string_t *fields, string_t *value, mail_search_arg* arg)
+extern(C) 
+bool elasticsearch_add_definite_query_args(string_t *fields, string_t *value, struct_mail_search_arg* arg)
 {
     bool field_added = false;
 
@@ -634,14 +656,14 @@ bool elasticsearch_add_definite_query_args(string_t *fields, string_t *value, ma
     return field_added;
 }
 
-int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox *box, mail_search_arg* args, fts_lookup_flags flags, fts_result *result)
+extern(C) int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox* box, struct_mail_search_arg* args, fts_lookup_flags flags, fts_result *result)
 {
     /* state tracking */
     elasticsearch_result **es_results = null;
     bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 
     /* mailbox information */
-    mailbox_status status;
+    struct_mailbox_status status;
     const(char)* box_guid = null;
 
     /* temp variables */
@@ -649,10 +671,14 @@ int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox *box, mail_s
     int ret = -1;
     size_t num_rows = 0;
     /* json query building */
+    /*
     string_t *str = str_new(pool, 1024);
     string_t *query = str_new(pool, 1024);
     string_t *fields = str_new(pool, 1024);
-
+*/
+    string_t *str = str_new( 1024);
+    string_t *query = str_new( 1024);
+    string_t *fields = str_new( 1024);
     /* validate our input */
     if (_backend is null || box is null || args is null || result is null) {
         i_error("fts_elasticsearch: critical error during lookup");
@@ -669,7 +695,7 @@ int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox *box, mail_s
     }
 
     /* open the mailbox */
-    mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
+    mailbox_get_open_status(box, MailboxStatusItems.uidNext, &status);
 
     /* default ES is limited to 10,000 results */
     /* TODO: paginate? */
@@ -693,24 +719,24 @@ int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox *box, mail_s
     }
 
     /* parse the json */
-    str_printfa(str, JSON_SEARCH, str_c(query),
-                and_args == 1 ? "and" : "or", str_c(fields), num_rows);
+    //str_printfa(str, JSON_SEARCH, str_c(query),
+      //          and_args == 1 ? "and" : "or", str_c(fields), num_rows);
     
     ret = elasticsearch_connection_select(backend.elasticsearch_conn, pool,
                                           str_c(str), box_guid, &es_results);
 
     /* build our fts_result return */
-    result.box = box;
+    //result.box = box;
     result.scores_sorted = false;
 
     /* FTS_LOOKUP_FLAG_NO_AUTO_FUZZY says that exact matches for non-fuzzy searches
      * should go to maybe_uids instead of definite_uids. */
-    ARRAY_TYPE(seq_range) *uids_arr = (flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0 ?
+    /*mixin (ARRAY_TYPE!(seq_range)) *uids_arr = (flags & FTS_LOOKUP_FLAG_NO_AUTO_FUZZY) == 0 ?
             &result.definite_uids : &result.maybe_uids;
-
+*/
     if (ret > 0 && es_results !is null) {
-        array_append_array(uids_arr, &es_results[0].uids);
-        array_append_array(&result.scores, &es_results[0].scores);
+        //array_append_array(uids_arr, &es_results[0].uids);
+        //array_append_array(&result.scores, &es_results[0].scores);
     }
 
     /* clean-up */
@@ -725,32 +751,27 @@ int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox *box, mail_s
 shared static this()
 {
     struct_fts_backend_vfuncs vfuncs;
-    with(vfuncs)
-    {
-        .alloc =        &fts_backend_elasticsearch_alloc;
-        .init =         &fts_backend_elasticsearch_init;
-        .deinit =       &fts_backend_elasticsearch_deinit;
-        .get_last_uid = &fts_backend_elasticsearch_get_last_uid;
-        .update_init =  &fts_backend_elasticsearch_update_init;
-        .update_deinit = &fts_backend_elasticsearch_update_deinit;
-        .update_set_mailbox = &fts_backend_elasticsearch_update_set_mailbox;
-        .update_expunge = &fts_backend_elasticsearch_update_expunge;
-        .update_set_build_key = &fts_backend_elasticsearch_update_set_build_key;
-        .update_unset_build_key = &fts_backend_elasticsearch_update_unset_build_key;
-        .update_build_more = &fts_backend_elasticsearch_update_build_more;
-        .refresh = &fts_backend_elasticsearch_refresh;
-        .rescan = &fts_backend_elasticsearch_rescan;
-        .optimize = &fts_backend_elasticsearch_optimize;
-        .lookup = &fts_backend_default_can_lookup;
-        .lookup_multi = &fts_backend_elasticsearch_lookup;
-        .lookup_done = null;
-    }
-    with(fts_backend_elasticsearch)
-    {
-        .name = "elasticsearch".ptr;
-        .flags = FTS_BACKEND_FLAG_FUZZY_SEARCH;
-        .v = vfuncs;
-    }
+    vfuncs.alloc =        &fts_backend_elasticsearch_alloc;
+    vfuncs.init =         &fts_backend_elasticsearch_init;
+    vfuncs.deinit =       &fts_backend_elasticsearch_deinit;
+    vfuncs.get_last_uid = &fts_backend_elasticsearch_get_last_uid;
+    vfuncs.update_init =  &fts_backend_elasticsearch_update_init;
+    vfuncs.update_deinit = &fts_backend_elasticsearch_update_deinit;
+    vfuncs.update_set_mailbox = &fts_backend_elasticsearch_update_set_mailbox;
+    vfuncs.update_expunge = &fts_backend_elasticsearch_update_expunge;
+    vfuncs.update_set_build_key = &fts_backend_elasticsearch_update_set_build_key;
+    vfuncs.update_unset_build_key = &fts_backend_elasticsearch_update_unset_build_key;
+    vfuncs.update_build_more = &fts_backend_elasticsearch_update_build_more;
+    vfuncs.refresh = &fts_backend_elasticsearch_refresh;
+    vfuncs.rescan = &fts_backend_elasticsearch_rescan;
+    vfuncs.optimize = &fts_backend_elasticsearch_optimize;
+    //vfuncs.can_lookup = &fts_backend_default_can_lookup;
+    vfuncs.lookup = &fts_backend_elasticsearch_lookup;
+    vfuncs.lookup_done = null;
+    
+    fts_backend_elasticsearch.name = "elasticsearch".ptr;
+    fts_backend_elasticsearch.flags = FTSBackendFlag.fuzzySearch;
+    fts_backend_elasticsearch.v = vfuncs;
 }
 
     

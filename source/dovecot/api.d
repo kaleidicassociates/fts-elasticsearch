@@ -1,11 +1,25 @@
 module dovecot.api;
 import core.stdc.config;
 import core.stdc.stdarg: va_list;
+import std.bitmanip;
+
 struct struct___locale_data { int dummy; }
 struct struct_mail_transaction_log;
 struct struct_mailbox_guid_cache_rec;
 
 extern(C):
+
+mixin template ARRAY_TYPE(T)
+{
+    union U
+    {
+        struct_array arr;
+        T** v;
+        T ** v_modifiable;
+    }
+    U results;
+}
+
 struct mail_index_sync_lost_handler_t;
 struct struct_dict {}
 struct struct_mail_index_map_modseq {}
@@ -43,8 +57,6 @@ int uni_utf8_data_is_valid();
 unichar_t uni_join_surrogate(unichar_t, unichar_t, );
 void uni_split_surrogate(unichar_t, unichar_t*, unichar_t*, );
 
-
-
 struct struct_seq_range
 {
     int seq1;
@@ -52,29 +64,44 @@ struct struct_seq_range
 }
 struct struct_mailbox;
 struct struct_mail_namespace;
-struct struct_mail_search_arg;
+//int ARRAY_DEFINE_TYPE(...);
+
+struct struct_fts_backend
+{
+    import std.bitmanip;
+    const(char)* name;
+    FTSBackendFlag flags;
+    struct_fts_backend_vfuncs v;
+    struct_mail_namespace* ns;
+    mixin(bitfields!(bool,"updating",1,
+                    int,"junk",7
+    ));
+}
+
+struct struct_fts_backend_update_context
+{
+    import std.bitmanip;
+    struct_fts_backend *backend;
+    normalizer_func_t *normalizer;
+    struct_mailbox* cur_box;
+    struct_mailbox* backend_box;
+    mixin(bitfields!(bool,"build_key_open",1,
+                    bool,"failed",1,
+                    int,"junk",6
+    ));
+}
+
+
 struct struct_seq_range_iter
 {
     //unknown ARRAY_TYPE;
     uint prev_n;
     uint prev_idx;
 }
-enum FTSLookupFlag
-{
-    andArgs = 1,
-    noAutoFuzzy = 2,
-}
 enum
 {
     FTS_LOOKUP_FLAG_AND_ARGS = 1,
     FTS_LOOKUP_FLAG_NO_AUTO_FUZZY = 2,
-}
-enum FTSBackendBuildKeyType
-{
-    header = 0,
-    mimeHeader = 1,
-    bodyPart = 2,
-    bodyPartBinary = 3,
 }
 enum
 {
@@ -83,9 +110,9 @@ enum
     FTS_BACKEND_BUILD_KEY_BODY_PART = 2,
     FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY = 3,
 }
-//void seq_range_array_add_with_init(unknown, );
-//void seq_range_array_add_range(unknown, );
-//uint seq_range_array_add_range_count(unknown, );
+void seq_range_array_add_with_init(unknown, );
+void seq_range_array_add_range(unknown, );
+uint seq_range_array_add_range_count(unknown, );
 struct struct_fts_backend_build_key
 {
     int uid;
@@ -95,14 +122,64 @@ struct struct_fts_backend_build_key
     const(char)* body_content_type;
     const(char)* body_content_disposition;
 }
-//void seq_range_array_merge(unknown, );
+void seq_range_array_merge(unknown, );
 extern __gshared int ATTR_NOWARN_UNUSED_RESULT;
-//void seq_range_array_remove_nth(unknown, );
+void seq_range_array_remove_nth(unknown, );
 struct struct_fts_score_map
 {
     int uid;
     float score;
 }
+struct struct_fts_result
+{
+    struct_mailbox* box;
+    unknown ARRAY_TYPE;
+    int scores_sorted;
+}
+void seq_range_array_invert(unknown, );
+void seq_range_array_iter_init(struct_seq_range_iter*, unknown, );
+struct struct_fts_multi_result
+{
+    int pool;
+    struct_fts_result* box_results;
+}
+int seq_range_array_iter_nth();
+int fts_backend_init(const(char)*, struct_mail_namespace*, const(char)**, struct_fts_backend**, );
+void fts_backend_deinit(struct_fts_backend**, );
+int fts_backend_get_last_uid(struct_fts_backend*, struct_mailbox*, int*, );
+int fts_backend_is_updating();
+struct_fts_backend_update_context* fts_backend_update_init(struct_fts_backend*, );
+int fts_backend_update_deinit(struct_fts_backend_update_context**, );
+void fts_backend_update_set_mailbox(struct_fts_backend_update_context*, struct_mailbox*, );
+void fts_backend_update_expunge(struct_fts_backend_update_context*, int, );
+int fts_backend_update_set_build_key();
+void fts_backend_update_unset_build_key(struct_fts_backend_update_context*, );
+int fts_backend_update_build_more(struct_fts_backend_update_context*, const(ubyte)*, int, );
+int fts_backend_refresh(struct_fts_backend*, );
+int fts_backend_rescan(struct_fts_backend*, );
+int fts_backend_optimize(struct_fts_backend*, );
+int fts_backend_can_lookup();
+int fts_backend_lookup(struct_fts_backend*, struct_mailbox*, struct_mail_search_arg*, FTSLookupFlag, struct_fts_result*, );
+int fts_backend_lookup_multi(struct_fts_backend*, struct_mailbox**, struct_mail_search_arg*, FTSLookupFlag, struct_fts_multi_result*, );
+void fts_backend_lookup_done(struct_fts_backend*, );
+
+enum FTSLookupFlag
+{
+    andArgs = 1,
+    noAutoFuzzy = 2,
+}
+enum FTSBackendBuildKeyType
+{
+    header = 0,
+    mimeHeader = 1,
+    bodyPart = 2,
+    bodyPartBinary = 3,
+}
+//void seq_range_array_add_with_init(unknown, );
+//void seq_range_array_add_range(unknown, );
+//uint seq_range_array_add_range_count(unknown, );
+//void seq_range_array_merge(unknown, );
+//void seq_range_array_remove_nth(unknown, );
 struct FTSResult
 {
     struct_mailbox* box;
@@ -111,11 +188,6 @@ struct FTSResult
 }
 //void seq_range_array_invert(unknown, );
 //void seq_range_array_iter_init(struct_seq_range_iter*, unknown, );
-struct struct_fts_multi_result
-{
-    int pool;
-    FTSResult* box_results;
-}
 int seq_range_array_iter_nth();
 int fts_backend_init(const(char)*, struct_mail_namespace*, const(char)**, struct_fts_backend**, );
 void fts_backend_deinit(struct_fts_backend**, );
@@ -3592,16 +3664,17 @@ int fdatasync(int, );
 int getentropy(void*, int, );
 
 struct struct_message_size;
-enum enum_mail_flags
+
+enum MailFlags
 {
-    MAIL_ANSWERED = 1,
-    MAIL_FLAGGED = 2,
-    MAIL_DELETED = 4,
-    MAIL_SEEN = 8,
-    MAIL_DRAFT = 16,
-    MAIL_RECENT = 32,
-    MAIL_FLAGS_MASK = 63,
-    MAIL_FLAGS_NONRECENT = 31,
+    answered = 1,
+    flagged = 2,
+    deleted = 4,
+    seen = 8,
+    draft = 16,
+    recent = 32,
+    mask = 63,
+    nonRecent = 31,
 }
 enum
 {
@@ -3731,7 +3804,7 @@ struct struct_mail_index_view_vfuncs
     const(struct_mail_index_record)* function(struct_mail_index_view*, uint, struct_mail_index_map**, int*) lookup_full;
     void function(struct_mail_index_view*, uint, uint*) lookup_uid;
     void function(struct_mail_index_view*, uint, uint, uint*, uint*) lookup_seq_range;
-    void function(struct_mail_index_view*, enum_mail_flags, ubyte, uint*) lookup_first;
+    void function(struct_mail_index_view*, MailFlags, ubyte, uint*) lookup_first;
     void function(struct_mail_index_view*, uint, union_array__keyword_indexes*) lookup_keywords;
     void function(struct_mail_index_view*, uint, uint, struct_mail_index_map**, const(void)**, int*) lookup_ext_full;
     void function(struct_mail_index_view*, struct_mail_index_map*, uint, const(void)**, int*) get_header_ext;
@@ -5596,7 +5669,7 @@ struct struct_mailbox_vfuncs
     struct_mailbox_transaction_context* function(struct_mailbox*, enum_mailbox_transaction_flags, const(char)*) transaction_begin;
     int function(struct_mailbox_transaction_context*, struct_mail_transaction_commit_changes*) transaction_commit;
     void function(struct_mailbox_transaction_context*) transaction_rollback;
-    enum_mail_flags function(struct_mailbox*) get_private_flags_mask;
+    MailFlags function(struct_mailbox*) get_private_flags_mask;
     struct_mail* function(struct_mailbox_transaction_context*, MailFetchField, struct_mailbox_header_lookup_ctx*) mail_alloc;
     struct_mail_search_context* function(struct_mailbox_transaction_context*, struct_mail_search_args*, const(const MailSortType)*, MailFetchField, struct_mailbox_header_lookup_ctx*) search_init;
     int function(struct_mail_search_context*) search_deinit;
@@ -5738,7 +5811,6 @@ struct struct_mailbox_attribute_internal
     int function(struct_mailbox*, const(char)*, struct_mail_attribute_value*) get;
     int function(struct_mailbox_transaction_context*, const(char)*, const(struct_mail_attribute_value)*) set;
 }
-struct struct_mail_search_args;
 void mail_index_register_expunge_handler(struct_mail_index*, uint32_t, int, mail_index_expunge_handler_t*, void*, );
 struct struct_mail_search_result;
 int mail_transaction_log_view_set_all(struct_mail_transaction_log_view*, );
@@ -5762,8 +5834,8 @@ struct struct_mailbox_status
     uint64_t highest_modseq;
     uint64_t highest_pvt_modseq;
     const union_array__keywords* keywords;
-    enum_mail_flags permanent_flags;
-    enum_mail_flags flags;
+    MailFlags permanent_flags;
+    MailFlags flags;
     int permanent_keywords;
     int allow_new_keywords;
     int nonpermanent_modseqs;
@@ -6156,7 +6228,7 @@ struct struct_mail_vfuncs
     void function(struct_mail*, int) set_uid_cache_updates;
     void function(struct_mail*) precache;
     void function(struct_mail*, MailFetchField, struct_mailbox_header_lookup_ctx*) add_temp_wanted_fields;
-    enum_mail_flags function(struct_mail*) get_flags;
+    MailFlags function(struct_mail*) get_flags;
     const(const(char)*)* function(struct_mail*) get_keywords;
     const(union_array__keyword_indexes)* function(struct_mail*) get_keyword_indexes;
     c_ulong function(struct_mail*) get_modseq;
@@ -6174,7 +6246,7 @@ struct struct_mail_vfuncs
     int function(struct_mail*, const(struct_message_part)*, int, int*, uint*, int*, struct_istream**) get_binary_stream;
     int function(struct_mail*, MailFetchField, const(char)**) get_special;
     int function(struct_mail*, struct_mail**) get_backend_mail;
-    void function(struct_mail*, enum_modify_type, enum_mail_flags) update_flags;
+    void function(struct_mail*, enum_modify_type, MailFlags) update_flags;
     void function(struct_mail*, enum_modify_type, struct_mail_keywords*) update_keywords;
     void function(struct_mail*, c_ulong) update_modseq;
     void function(struct_mail*, c_ulong) update_pvt_modseq;
@@ -6285,7 +6357,7 @@ enum _Anonymous_68
     _CS_V6_ENV = 1148,
     _CS_V7_ENV = 1149,
 }
-void mail_index_lookup_view_flags(struct_mail_index_view*, int, enum_mail_flags*, union_array__keyword_indexes*, );
+void mail_index_lookup_view_flags(struct_mail_index_view*, int, MailFlags*, union_array__keyword_indexes*, );
 int mailbox_open_stream(struct_mailbox*, struct_istream*, );
 struct struct_mail_private
 {
@@ -6315,7 +6387,7 @@ int mail_index_lookup_seq_range();
 int mailbox_is_any_inbox();
 int mail_index_lookup_seq();
 void mailbox_skip_create_name_restrictions(struct_mailbox*, int, );
-void mail_index_lookup_first(struct_mail_index_view*, enum_mail_flags, int, int*, );
+void mail_index_lookup_first(struct_mail_index_view*, MailFlags, int, int*, );
 int mailbox_verify_create_name(struct_mailbox*, );
 void mail_index_append(struct_mail_index_transaction*, int, int*, );
 struct struct_mailbox_list_context
@@ -6345,14 +6417,14 @@ int mailbox_delete_empty(struct_mailbox*, );
 void mail_index_expunge_guid(struct_mail_index_transaction*, int, const(const guid_128_t), );
 void mail_index_revert_changes(struct_mail_index_transaction*, int, );
 int mailbox_rename(struct_mailbox*, struct_mailbox*, );
-void mail_index_update_flags(struct_mail_index_transaction*, int, enum_modify_type, enum_mail_flags, );
+void mail_index_update_flags(struct_mail_index_transaction*, int, enum_modify_type, MailFlags, );
 int mailbox_set_subscribed(struct_mailbox*, int, );
-void mail_index_update_flags_range(struct_mail_index_transaction*, int, int, enum_modify_type, enum_mail_flags, );
+void mail_index_update_flags_range(struct_mail_index_transaction*, int, int, enum_modify_type, MailFlags, );
 int mailbox_is_subscribed();
 struct struct_mail_save_private_changes
 {
     uint mailnum;
-    enum_mail_flags flags;
+    MailFlags flags;
 }
 int mailbox_enable(struct_mailbox*, enum_mailbox_feature, );
 void mail_index_attribute_set(struct_mail_index_transaction*, int, const(char)*, int, int, );
@@ -6418,7 +6490,7 @@ union union_mail_search_module_context
 }
 int mailbox_get_metadata(struct_mailbox*, MailboxMetadataItem, struct_mailbox_metadata*, );
 struct_mail_keywords* mail_index_keywords_create_from_indexes(struct_mail_index*, const union_array__keyword_indexes*, );
-enum_mail_flags mailbox_get_private_flags_mask(struct_mailbox*, );
+MailFlags mailbox_get_private_flags_mask(struct_mailbox*, );
 struct struct_mail_search_context
 {
     struct_mailbox_transaction_context* transaction;
@@ -6469,8 +6541,8 @@ struct_mailbox_transaction_context* mailbox_transaction_begin(struct_mailbox*, e
 void mail_index_sync_flags_apply(const struct_mail_index_sync_rec*, int*, );
 struct struct_mail_save_data
 {
-    enum_mail_flags flags;
-    enum_mail_flags pvt_flags;
+    MailFlags flags;
+    MailFlags pvt_flags;
     struct_mail_keywords* keywords;
     uint64_t min_modseq;
     time_t received_date;
@@ -6578,7 +6650,7 @@ void mail_storage_copy_list_error(struct_mail_storage*, struct_mailbox_list*, );
 int mailbox_keyword_is_valid();
 void mail_storage_copy_error(struct_mail_storage*, struct_mail_storage*, );
 struct_mail_save_context* mailbox_save_alloc(struct_mailbox_transaction_context*, );
-void mailbox_save_set_flags(struct_mail_save_context*, enum_mail_flags, struct_mail_keywords*, );
+void mailbox_save_set_flags(struct_mail_save_context*, MailFlags, struct_mail_keywords*, );
 void mail_autoexpunge(struct_mail*, );
 void mailbox_save_copy_flags(struct_mail_save_context*, struct_mail*, );
 int mail_prefetch();
@@ -6624,7 +6696,7 @@ void mail_set_seq(struct_mail*, uint32_t, );
 MailIndexOpenFlag mail_storage_settings_to_index_flags(const struct_mail_storage_settings*, );
 int mail_set_uid();
 void mailbox_save_context_deinit(struct_mail_save_context*, );
-enum_mail_flags mail_get_flags(struct_mail*, );
+MailFlags mail_get_flags(struct_mail*, );
 const(const(char)*)* mail_get_keywords(struct_mail*, );
 const(union_array__keyword_indexes)* mail_get_keyword_indexes(struct_mail*, );
 uint64_t mail_get_modseq(struct_mail*, );
@@ -6645,7 +6717,7 @@ int mail_get_binary_stream(struct_mail*, const struct_message_part*, int, int*, 
 int mail_get_binary_size(struct_mail*, const struct_message_part*, int, int*, uint*, );
 int mail_get_special(struct_mail*, MailFetchField, const(char)**, );
 int mail_get_backend_mail(struct_mail*, struct_mail**, );
-void mail_update_flags(struct_mail*, enum_modify_type, enum_mail_flags, );
+void mail_update_flags(struct_mail*, enum_modify_type, MailFlags, );
 void mail_update_keywords(struct_mail*, enum_modify_type, struct_mail_keywords*, );
 void mail_update_modseq(struct_mail*, uint64_t, );
 void mail_update_pvt_modseq(struct_mail*, uint64_t, );
@@ -6659,12 +6731,12 @@ int mail_parse_human_timestamp(const(char)*, time_t*, int*, );
 
 struct struct_mail_thread_context;
 struct struct_mail_search_mime_part;
-enum enum_mail_thread_type
+enum MailThreadType
 {
-    MAIL_THREAD_NONE = 0,
-    MAIL_THREAD_ORDEREDSUBJECT = 1,
-    MAIL_THREAD_REFERENCES = 2,
-    MAIL_THREAD_REFS = 3,
+    none = 0,
+    orderedSubject = 1,
+    references = 2,
+    refs = 3,
 }
 enum
 {
@@ -6736,10 +6808,10 @@ struct struct_mail_thread_child_node
     int sort_date;
 }
 int mail_thread_type_parse();
-const(char)* mail_thread_type_to_str(enum_mail_thread_type, );
+const(char)* mail_thread_type_to_str(MailThreadType, );
 void mail_thread_deinit(struct_mail_thread_context**, );
 struct struct_mail_thread_iterate_context;
-struct_mail_thread_iterate_context* mail_thread_iterate_init(struct_mail_thread_context*, enum_mail_thread_type, int, );
+struct_mail_thread_iterate_context* mail_thread_iterate_init(struct_mail_thread_context*, MailThreadType, int, );
 const(struct_mail_thread_child_node)* mail_thread_iterate_next(struct_mail_thread_iterate_context*, struct_mail_thread_iterate_context**, );
 uint mail_thread_iterate_count(struct_mail_thread_iterate_context*, );
 enum enum_mail_search_date_type
@@ -6817,16 +6889,16 @@ void mail_search_args_result_serialize(const struct_mail_search_args*, int*, );
 void mail_search_args_result_deserialize(struct_mail_search_args*, const(ubyte)*, int, );
 
 
-int* str_new();
-int* t_str_new();
-int* str_new_const();
-int* t_str_new_const();
+int* str_new(int n);
+int* t_str_new(int n);
+int* str_new_const(int n);
+int* t_str_new_const(int n);
 void str_free(int**, );
 char* str_free_without_data(int**, );
 const(char)* str_c(int*, );
 char* str_c_modifiable(int*, );
 const(ubyte)* str_data(const(int)*, );
-int str_len();
+int str_len(int* s);
 void str_append_n(int*, const(void)*, int, );
 void str_append(int*, const(char)*, );
 void str_append_data(int*, const(void)*, int, );
@@ -7215,7 +7287,8 @@ alias buffer_t = struct_buffer;
 //alias bool = int;
 int str_parse_uint64(const(char)*, uint64_t*, const(char)**);
 void bcopy(const(void)*, void*, int);
-alias string_t = struct_buffer;
+//alias string_t = struct_buffer;
+alias string_t = int;
 
 
 
@@ -8534,7 +8607,7 @@ struct struct_drand48_data
     ushort __init;
     ulong __a;
 }
-int strlen();
+int strlen(const(char)* p);
 int drand48_r(struct_drand48_data*, double*, );
 int erand48_r(ushort*, struct_drand48_data*, double*, );
 int strnlen();
@@ -9027,7 +9100,7 @@ struct struct_fts_backend_vfuncs
     int function(struct_fts_backend_update_context*) update_deinit;
     void function(struct_fts_backend_update_context*, struct_mailbox*) update_set_mailbox;
     void function(struct_fts_backend_update_context*, int) update_expunge;
-    int function(struct_fts_backend_update_context*, const struct_fts_backend_build_key*) function(int*) bool_;
+    int function(struct_fts_backend_update_context*, const(struct_fts_backend_build_key)*) update_set_build_key;
     void function(struct_fts_backend_update_context*) update_unset_build_key;
     int function(struct_fts_backend_update_context*, const(ubyte)*, int) update_build_more;
     int function(struct_fts_backend*) refresh;
@@ -9062,13 +9135,13 @@ void seq_range_array_merge(unknown, );
 
 //alias normalizer_func_t = input;
 void seq_range_array_remove_nth(unknown, );
-enum enum_fts_backend_flags
+enum FTSBackendFlag
 {
-    FTS_BACKEND_FLAG_BINARY_MIME_PARTS = 1,
-    FTS_BACKEND_FLAG_NORMALIZE_INPUT = 2,
-    FTS_BACKEND_FLAG_BUILD_FULL_WORDS = 4,
-    FTS_BACKEND_FLAG_FUZZY_SEARCH = 8,
-    FTS_BACKEND_FLAG_TOKENIZED_INPUT = 16,
+    binaryMimeParts = 1,
+    normalizeInput = 2,
+    buildFullWords = 4,
+    fuzzySearch = 8,
+    tokenizedInput = 16,
 }
 enum
 {
@@ -9087,27 +9160,10 @@ void uni_ucs4_to_utf8_c(unichar_t, int*, );
 int seq_range_array_iter_nth();
 int uni_utf8_get_char(const(char)*, unichar_t*, );
 int uni_utf8_get_char_n(const(void)*, int, unichar_t*, );
-struct struct_fts_backend
-{
-    const(char)* name;
-    enum_fts_backend_flags flags;
-    struct_fts_backend_vfuncs v;
-    struct_mail_namespace* ns;
-    int updating;
-}
 int fts_backend_init(const(char)*, struct_mail_namespace*, const(char)**, struct_fts_backend**, );
 void fts_backend_deinit(struct_fts_backend**, );
 uint uni_utf8_partial_strlen_n(const(void)*, int, int*, );
 int fts_backend_get_last_uid(struct_fts_backend*, struct_mailbox*, int*, );
-struct struct_fts_backend_update_context
-{
-    struct_fts_backend* backend;
-    normalizer_func_t* normalizer;
-    struct_mailbox* cur_box;
-    struct_mailbox* backend_box;
-    int build_key_open;
-    int failed;
-}
 int fts_backend_is_updating();
 struct_fts_backend_update_context* fts_backend_update_init(struct_fts_backend*, );
 int fts_backend_update_deinit(struct_fts_backend_update_context**, );
@@ -9123,14 +9179,14 @@ void fts_backend_register(const struct_fts_backend*, );
 void fts_backend_unregister(const(char)*, );
 int uni_utf8_to_decomposed_titlecase(const(void)*, int, int*, );
 int fts_backend_update_set_build_key();
-int fts_backend_default_can_lookup();
+int fts_backend_default_can_lookup(struct_fts_backend*, struct_mailbox*, struct_mail_search_arg*, FTSLookupFlag, FTSResult*);
 void fts_backend_update_unset_build_key(struct_fts_backend_update_context*, );
 void fts_filter_uids(unknown, );
 int uni_utf8_get_valid_data();
 int uni_utf8_str_is_valid();
 int fts_backend_update_build_more(struct_fts_backend_update_context*, const(ubyte)*, int, );
 int uni_utf8_data_is_valid();
-int fts_index_get_header();
+int fts_index_get_header(struct_mailbox*, const struct_fts_index_header*);
 int fts_index_set_header(struct_mailbox*, const struct_fts_index_header*, );
 unichar_t uni_join_surrogate(unichar_t, unichar_t, );
 int fts_backend_reset_last_uids(struct_fts_backend*, );
@@ -9138,7 +9194,7 @@ int fts_backend_refresh(struct_fts_backend*, );
 int fts_index_have_compatible_settings(struct_mailbox_list*, int, );
 int fts_backend_rescan(struct_fts_backend*, );
 int fts_backend_optimize(struct_fts_backend*, );
-int fts_header_want_indexed();
+int fts_header_want_indexed(const(char*));
 int fts_header_has_language();
 void uni_split_surrogate(unichar_t, unichar_t*, unichar_t*, );
 int fts_backend_can_lookup();
@@ -9989,3 +10045,264 @@ void freeaddrinfo(struct_addrinfo*, );
 const(char)* gai_strerror(int, );
 int getnameinfo(const struct_sockaddr*, socklen_t, char*, socklen_t, char*, socklen_t, int, );
 
+//include "seq-range-array.h"
+//include "mail-types.h"
+//include "mail-thread.h"
+
+struct mail_search_mime_part;
+
+enum mail_search_arg_type
+{
+    SEARCH_OR,
+    SEARCH_SUB,
+
+    /* sequence sets */
+    SEARCH_ALL,
+    SEARCH_SEQSET,
+    SEARCH_UIDSET,
+
+    /* flags */
+    SEARCH_FLAGS,
+    SEARCH_KEYWORDS,
+
+    /* dates (date_type required) */
+    SEARCH_BEFORE,
+    SEARCH_ON, /* time must point to beginning of the day */
+    SEARCH_SINCE,
+
+    /* sizes */
+    SEARCH_SMALLER,
+    SEARCH_LARGER,
+
+    /* headers */
+    SEARCH_HEADER,
+    SEARCH_HEADER_ADDRESS,
+    SEARCH_HEADER_COMPRESS_LWSP,
+
+    /* body */
+    SEARCH_BODY,
+    SEARCH_TEXT,
+
+    /* extensions */
+    SEARCH_MODSEQ,
+    SEARCH_INTHREAD,
+    SEARCH_GUID,
+    SEARCH_MAILBOX,
+    SEARCH_MAILBOX_GUID,
+    SEARCH_MAILBOX_GLOB,
+    SEARCH_REAL_UID,
+    SEARCH_MIMEPART
+}
+
+enum mail_search_date_type
+{
+    MAIL_SEARCH_DATE_TYPE_SENT = 1,
+    MAIL_SEARCH_DATE_TYPE_RECEIVED,
+    MAIL_SEARCH_DATE_TYPE_SAVED
+}
+
+enum mail_search_arg_flag
+{
+    /* Used by *BEFORE/SINCE/ON searches.
+
+       When NOT set: Adjust search timestamps so that the email's timezone
+       is included in the comparisons. For example
+       "04-Nov-2016 00:00:00 +0200" would match 4th day. This allows
+       searching for mails with dates from the email sender's point of
+       view. For received/saved dates there is no known timezone, and
+       without this flag the dates are compared using the server's local
+       timezone.
+
+       When set: Compare the timestamp as UTC. For example
+       "04-Nov-2016 00:00:00 +0200" would be treated as
+       "03-Nov-2016 22:00:00 UTC" and would match 3rd day. This allows
+       searching for mails within precise time interval. Since imap-dates
+       don't allow specifying timezone this isn't really possible with IMAP
+       protocol, except using OLDER/YOUNGER searches. */
+    MAIL_SEARCH_ARG_FLAG_UTC_TIMES  = 0x01,
+};
+
+enum mail_search_modseq_type {
+    MAIL_SEARCH_MODSEQ_TYPE_ANY = 0,
+    MAIL_SEARCH_MODSEQ_TYPE_PRIVATE,
+    MAIL_SEARCH_MODSEQ_TYPE_SHARED
+}
+
+struct mail_search_modseq
+{
+    ulong modseq;
+    mail_search_modseq_type type;
+}
+
+
+struct struct_mail_search_arg
+{
+    /* NOTE: when adding new fields, make sure mail_search_arg_dup_one()
+       and mail_search_arg_one_equals() are updated. */
+    struct_mail_search_arg *next;
+
+    mail_search_arg_type type;
+    struct V
+    {
+        struct_mail_search_arg *subargs;
+        mixin ARRAY_TYPE!(struct_seq_range) seqset;
+        const char *str;
+        time_t time;
+        long size;
+        MailFlags flags;
+        mail_search_arg_flag search_flags;
+        mail_search_date_type date_type;
+        MailThreadType thread_type;
+        struct_mail_search_modseq *modseq;
+        struct_mail_search_result *search_result;
+        struct_mail_search_mime_part *mime_part;
+    }
+    V value;
+    /* set by mail_search_args_init(): */
+    struct V2
+    {
+        struct_mail_search_args *search_args;
+        /* Note that initialized keywords may be empty if the keyword
+           wasn't valid in this mailbox. */
+        struct_mail_keywords *keywords;
+        struct_imap_match_glob *mailbox_glob;
+    }
+    V2 initialized;
+
+    void *context;
+    const(char)* hdr_field_name; /* for SEARCH_HEADER* */
+    mixin(bitfields!(
+        bool,"match_not",1, /* result = !result */
+        bool,"match_always",1, /* result = 1 always */
+        bool,"nonmatch_always",1, /* result = 0 always */
+        bool,"fuzzy",1, /* use fuzzy matching for this arg */
+        bool,"no_fts",1, /* do NOT call FTS */
+        uint,"junk",3,
+    ));
+    int result; /* -1 = unknown, 0 = unmatched, 1 = matched */
+}
+
+struct struct_mail_search_args
+{
+    int refcount, init_refcount;
+
+    pool_t pool;
+    struct_mailbox* box;
+    struct_mail_search_arg* args;
+
+    mixin(bitfields!(
+        bool,"simplified",1,
+        bool,"have_inthreads",1,
+        /* Stop mail_search_next() when finding a non-matching mail.
+           (Could be useful when wanting to find only the oldest mails.) */
+        bool,"stop_on_nonmatch",1,
+        /* fts plugin has already expanded the search args - no need to do
+           it again. */
+        bool,"fts_expanded",1,
+        uint,"junk",4
+    ));
+};
+
+/*#define ARG_SET_RESULT(arg, res) \
+    STMT_START { \
+        (arg)->result = !(arg)->match_not ? (res) : \
+            ((res) == -1 ? -1 : ((res) == 0 ? 1 : 0)); \
+    } STMT_END
+*/
+//typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg, void *context);
+
+/* Allocate keywords for search arguments. If change_uidsets is TRUE,
+   change uidsets to seqsets. */
+/+
+void mail_search_args_init(struct mail_search_args *args,
+               struct mailbox *box, bool change_uidsets,
+               const ARRAY_TYPE(seq_range) *search_saved_uidset)
+    ATTR_NULL(4);
+/* Initialize arg and its children. args is used for getting mailbox and
+   pool. */
+void mail_search_arg_init(struct mail_search_args *args,
+              struct mail_search_arg *arg,
+              bool change_uidsets,
+              const ARRAY_TYPE(seq_range) *search_saved_uidset);
+/* Free memory allocated by mail_search_args_init(). The args can initialized
+   afterwards again if needed. The args can be reused for other queries after
+   calling this. */
+void mail_search_args_deinit(struct mail_search_args *args);
+/* Free arg and its siblings and children. */
+void mail_search_arg_deinit(struct mail_search_arg *arg);
+/* Free arg and its children, but not its siblings. */
+void mail_search_arg_one_deinit(struct mail_search_arg *arg);
+/* Convert sequence sets in args to UIDs. */
+void mail_search_args_seq2uid(struct mail_search_args *args);
+/* Returns TRUE if the two search arguments are fully compatible.
+   Always returns FALSE if there are seqsets, since they may point to different
+   messages depending on when the search is run. */
+bool mail_search_args_equal(const struct mail_search_args *args1,
+                const struct mail_search_args *args2);
+/* Same as mail_search_args_equal(), but for individual mail_search_arg
+   structs. All the siblings of arg1 and arg2 are also compared. */
+bool mail_search_arg_equals(const struct mail_search_arg *arg1,
+                const struct mail_search_arg *arg2);
+/* Same as mail_search_arg_equals(), but don't compare siblings. */
+bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
+                const struct mail_search_arg *arg2);
+
+void mail_search_args_ref(struct mail_search_args *args);
+void mail_search_args_unref(struct mail_search_args **args);
+
+struct mail_search_args *
+mail_search_args_dup(const struct mail_search_args *args);
+struct mail_search_arg *
+mail_search_arg_dup(pool_t pool, const struct mail_search_arg *arg);
+
+/* Reset the results in search arguments. match_always is reset only if
+   full_reset is TRUE. */
+void mail_search_args_reset(struct mail_search_arg *args, bool full_reset);
+
+/* goes through arguments in list that don't have a result yet.
+   Returns 1 = search matched, 0 = search unmatched, -1 = don't know yet */
+int mail_search_args_foreach(struct mail_search_arg *args,
+                 mail_search_foreach_callback_t *callback,
+                 void *context) ATTR_NULL(3);
+#define mail_search_args_foreach(args, callback, context) \
+      mail_search_args_foreach(args + \
+        CALLBACK_TYPECHECK(callback, void (*)( \
+            struct mail_search_arg *, typeof(context))), \
+        (mail_search_foreach_callback_t *)callback, context)
+
+/* Fills have_headers and have_body based on if such search argument exists
+   that needs to be checked. Returns the headers that we're searching for, or
+   NULL if we're searching for TEXT. */
+const char *const *
+mail_search_args_analyze(struct mail_search_arg *args,
+             bool *have_headers, bool *have_body);
+
+/* Returns FALSE if search query contains MAILBOX[_GLOB] args such that the
+   query can never match any messages in the given mailbox. */
+bool mail_search_args_match_mailbox(struct mail_search_args *args,
+                    const char *vname, char sep);
+
+/* Simplify/optimize search arguments. Afterwards all OR/SUB args are
+   guaranteed to have match_not=FALSE. */
+void mail_search_args_simplify(struct mail_search_args *args);
+
+/* Append all args as IMAP SEARCH AND-query to the dest string and returns TRUE.
+   If some search arg can't be written as IMAP SEARCH parameter, error_r is set
+   and FALSE is returned. */
+bool mail_search_args_to_imap(string_t *dest, const struct mail_search_arg *args,
+                  const char **error_r);
+/* Like mail_search_args_to_imap(), but append only a single arg. */
+bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
+                 const char **error_r);
+/* Write all args to dest string as cmdline/human compatible input. */
+void mail_search_args_to_cmdline(string_t *dest,
+                 const struct mail_search_arg *args);
+
+/* Serialization for search args' results. */
+void mail_search_args_result_serialize(const struct mail_search_args *args,
+                       buffer_t *dest);
+void mail_search_args_result_deserialize(struct mail_search_args *args,
+                     const unsigned char *data,
+                     size_t size);
+
++/
