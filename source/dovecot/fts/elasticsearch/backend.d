@@ -1,6 +1,8 @@
 module dovecot.fts.elasticsearch.backend;
 import dovecot.api;
 
+#include "http-client.h"
+#include <json-c/json.h>
 
 import dovecot.fts.elasticsearch.plugin;
 import dovecot.fts.elasticsearch.conn;

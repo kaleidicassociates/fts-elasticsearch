@@ -2,6 +2,8 @@ module dovecot.api;
 import core.stdc.config;
 import core.stdc.stdarg: va_list;
 struct struct___locale_data { int dummy; }
+struct struct_mail_transaction_log;
+struct struct_mailbox_guid_cache_rec;
 
 extern(C) {
     alias unichar_t = int;
@@ -89,7 +91,7 @@ extern(C) {
     struct struct_fts_result
     {
         struct_mailbox* box;
-        unknown ARRAY_TYPE;
+        //unknown ARRAY_TYPE;
         int scores_sorted;
     }
     //void seq_range_array_invert(unknown, );
@@ -2361,14 +2363,14 @@ extern(C) {
     struct_mail_user* mail_user_find(struct_mail_user*, const(char)*, );
 
 
-    extern __gshared const struct_setting_parser_info mail_namespace_setting_parser_info;
+    //extern __gshared const struct_setting_parser_info mail_namespace_setting_parser_info;
     ssize_t recv(int, void*, int, int, );
     alias __rlim_t = c_ulong;
 
 
     int net_str2port(const(char)*, in_port_t*, );
     alias __rlim64_t = c_ulong;
-    extern __gshared const struct_setting_parser_info mail_storage_setting_parser_info;
+    //extern __gshared const struct_setting_parser_info mail_storage_setting_parser_info;
 
 
 
@@ -4383,7 +4385,7 @@ extern(C) {
     }
     void hook_mailbox_allocated(struct_mailbox*, );
     void hook_mailbox_opened(struct_mailbox*, );
-    alias mail_index_sync_lost_handler_t = index;
+    //alias mail_index_sync_lost_handler_t = index;
     void buffer_append(int*, const(void)*, int, );
     void hook_mail_allocated(struct_mail*, );
     void buffer_append_c(int*, ubyte, );
@@ -9081,4 +9083,2583 @@ extern(C) {
 }
 
 extern(C) {
+import core.stdc.config;
+import core.stdc.stdarg: va_list;
+struct struct___locale_data { int dummy; }
+
+extern(C) {
+    struct struct_mail;
+    struct struct_seq_range
+    {
+        int seq1;
+        int seq2;
+    }
+    struct struct_mailbox;
+
+
+    struct struct_mail_namespace;
+
+
+    struct struct_mail_user;
+    struct struct_mail_search_arg;
+    int ARRAY_DEFINE_TYPE(...);
+    struct struct_mailbox_list;
+    struct struct_seq_range_iter
+    {
+        unknown ARRAY_TYPE;
+        uint prev_n;
+        uint prev_idx;
+    }
+
+
+
+
+
+
+    struct struct_fts_backend_vfuncs
+    {
+        struct_fts_backend* function() alloc;
+        int function(struct_fts_backend*, const(char)**) init;
+        void function(struct_fts_backend*) deinit;
+        int function(struct_fts_backend*, struct_mailbox*, int*) get_last_uid;
+        struct_fts_backend_update_context* function(struct_fts_backend*) update_init;
+        int function(struct_fts_backend_update_context*) update_deinit;
+        void function(struct_fts_backend_update_context*, struct_mailbox*) update_set_mailbox;
+        void function(struct_fts_backend_update_context*, int) update_expunge;
+        int function(struct_fts_backend_update_context*, const struct_fts_backend_build_key*) function(int*) bool_;
+        void function(struct_fts_backend_update_context*) update_unset_build_key;
+        int function(struct_fts_backend_update_context*, const(ubyte)*, int) update_build_more;
+        int function(struct_fts_backend*) refresh;
+        int function(struct_fts_backend*) rescan;
+        int function(struct_fts_backend*) optimize;
+        int function(struct_fts_backend*, struct_mailbox*, struct_mail_search_arg*, enum_fts_lookup_flags, struct_fts_result*) lookup;
+        int function(struct_fts_backend*, struct_mailbox**, struct_mail_search_arg*, enum_fts_lookup_flags, struct_fts_multi_result*) lookup_multi;
+        void function(struct_fts_backend*) lookup_done;
+    }
+
+
+    enum enum_fts_lookup_flags
+    {
+        FTS_LOOKUP_FLAG_AND_ARGS = 1,
+        FTS_LOOKUP_FLAG_NO_AUTO_FUZZY = 2,
+    }
+    enum
+    {
+        FTS_LOOKUP_FLAG_AND_ARGS = 1,
+        FTS_LOOKUP_FLAG_NO_AUTO_FUZZY = 2,
+    }
+
+
+    extern __gshared int ATTR_PURE;
+    enum enum_fts_backend_build_key_type
+    {
+        FTS_BACKEND_BUILD_KEY_HDR = 0,
+        FTS_BACKEND_BUILD_KEY_MIME_HDR = 1,
+        FTS_BACKEND_BUILD_KEY_BODY_PART = 2,
+        FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY = 3,
+    }
+    enum
+    {
+        FTS_BACKEND_BUILD_KEY_HDR = 0,
+        FTS_BACKEND_BUILD_KEY_MIME_HDR = 1,
+        FTS_BACKEND_BUILD_KEY_BODY_PART = 2,
+        FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY = 3,
+    }
+
+
+
+
+    void seq_range_array_add_with_init(unknown, );
+    void seq_range_array_add_range(unknown, );
+
+
+
+    uint seq_range_array_add_range_count(unknown, );
+
+
+    void seq_range_array_merge(unknown, );
+    struct struct_fts_backend_build_key
+    {
+        int uid;
+        enum_fts_backend_build_key_type type;
+        struct_message_part* part;
+        const(char)* hdr_name;
+        const(char)* body_content_type;
+        const(char)* body_content_disposition;
+    }
+
+
+
+
+    extern __gshared int ATTR_NOWARN_UNUSED_RESULT;
+
+
+    alias unichar_t = int;
+    alias normalizer_func_t = input;
+    void seq_range_array_remove_nth(unknown, );
+    extern __gshared const(ubyte)[3] utf8_replacement_char;
+    extern __gshared const(const(int)*) uni_utf8_non1_bytes;
+    struct struct_fts_score_map
+    {
+        int uid;
+        float score;
+    }
+    enum enum_fts_backend_flags
+    {
+        FTS_BACKEND_FLAG_BINARY_MIME_PARTS = 1,
+        FTS_BACKEND_FLAG_NORMALIZE_INPUT = 2,
+        FTS_BACKEND_FLAG_BUILD_FULL_WORDS = 4,
+        FTS_BACKEND_FLAG_FUZZY_SEARCH = 8,
+        FTS_BACKEND_FLAG_TOKENIZED_INPUT = 16,
+    }
+    enum
+    {
+        FTS_BACKEND_FLAG_BINARY_MIME_PARTS = 1,
+        FTS_BACKEND_FLAG_NORMALIZE_INPUT = 2,
+        FTS_BACKEND_FLAG_BUILD_FULL_WORDS = 4,
+        FTS_BACKEND_FLAG_FUZZY_SEARCH = 8,
+        FTS_BACKEND_FLAG_TOKENIZED_INPUT = 16,
+    }
+    struct struct_fts_result
+    {
+        struct_mailbox* box;
+        unknown ARRAY_TYPE;
+        int scores_sorted;
+    }
+    int uni_utf8_to_ucs4(const(char)*, unknown, );
+    int uni_utf8_to_ucs4_n(const(ubyte)*, int, unknown, );
+    void seq_range_array_invert(unknown, );
+    void uni_ucs4_to_utf8(const(const unichar_t)*, int, int*, );
+    void seq_range_array_iter_init(struct_seq_range_iter*, unknown, );
+    void uni_ucs4_to_utf8_c(unichar_t, int*, );
+    struct struct_fts_multi_result
+    {
+        int pool;
+        struct_fts_result* box_results;
+    }
+    int seq_range_array_iter_nth();
+    int uni_utf8_get_char(const(char)*, unichar_t*, );
+    int uni_utf8_get_char_n(const(void)*, int, unichar_t*, );
+    struct struct_fts_backend
+    {
+        const(char)* name;
+        enum_fts_backend_flags flags;
+        struct_fts_backend_vfuncs v;
+        struct_mail_namespace* ns;
+        int updating;
+    }
+    int fts_backend_init(const(char)*, struct_mail_namespace*, const(char)**, struct_fts_backend**, );
+    void fts_backend_deinit(struct_fts_backend**, );
+    uint uni_utf8_partial_strlen_n(const(void)*, int, int*, );
+    int fts_backend_get_last_uid(struct_fts_backend*, struct_mailbox*, int*, );
+    struct struct_fts_backend_update_context
+    {
+        struct_fts_backend* backend;
+        normalizer_func_t* normalizer;
+        struct_mailbox* cur_box;
+        struct_mailbox* backend_box;
+        int build_key_open;
+        int failed;
+    }
+    int fts_backend_is_updating();
+    extern __gshared uint ATTR_CONST;
+    struct_fts_backend_update_context* fts_backend_update_init(struct_fts_backend*, );
+    int fts_backend_update_deinit(struct_fts_backend_update_context**, );
+    struct struct_fts_index_header
+    {
+        int last_indexed_uid;
+        int settings_checksum;
+        int unused;
+    }
+    void fts_backend_update_set_mailbox(struct_fts_backend_update_context*, struct_mailbox*, );
+    void fts_backend_update_expunge(struct_fts_backend_update_context*, int, );
+    void fts_backend_register(const struct_fts_backend*, );
+    void fts_backend_unregister(const(char)*, );
+    int uni_utf8_to_decomposed_titlecase(const(void)*, int, int*, );
+    int fts_backend_update_set_build_key();
+    int fts_backend_default_can_lookup();
+    void fts_backend_update_unset_build_key(struct_fts_backend_update_context*, );
+    void fts_filter_uids(unknown, );
+    int uni_utf8_get_valid_data();
+    int uni_utf8_str_is_valid();
+    int fts_backend_update_build_more(struct_fts_backend_update_context*, const(ubyte)*, int, );
+    int uni_utf8_data_is_valid();
+    int fts_index_get_header();
+    int fts_index_set_header(struct_mailbox*, const struct_fts_index_header*, );
+    unichar_t uni_join_surrogate(unichar_t, unichar_t, );
+    int fts_backend_reset_last_uids(struct_fts_backend*, );
+    int fts_backend_refresh(struct_fts_backend*, );
+    int fts_index_have_compatible_settings(struct_mailbox_list*, int, );
+    int fts_backend_rescan(struct_fts_backend*, );
+    int fts_backend_optimize(struct_fts_backend*, );
+    int fts_header_want_indexed();
+    int fts_header_has_language();
+    void uni_split_surrogate(unichar_t, unichar_t*, unichar_t*, );
+    int fts_backend_can_lookup();
+    int fts_mailbox_get_guid(struct_mailbox*, const(char)**, );
+    int fts_backend_lookup(struct_fts_backend*, struct_mailbox*, struct_mail_search_arg*, enum_fts_lookup_flags, struct_fts_result*, );
+    int fts_backend_lookup_multi(struct_fts_backend*, struct_mailbox**, struct_mail_search_arg*, enum_fts_lookup_flags, struct_fts_multi_result*, );
+    void fts_backend_lookup_done(struct_fts_backend*, );
+}
+
+extern(C) {
+    struct struct_buffer
+    {
+        const(void)* data;
+        const(int) used;
+        void*[5] priv;
+    }
+    struct struct_array
+    {
+        int* buffer;
+        int element_size;
+    }
+    union union_array__string
+    {
+        struct_array arr;
+        char*** v;
+        char*** v_modifiable;
+    }
+    void buffer_create_from_data(int*, void*, int, );
+    union union_array__const_string
+    {
+        struct_array arr;
+        const(const(const(char)*)*)* v;
+        const(char)*** v_modifiable;
+    }
+    union union_array__uint8_t
+    {
+        struct_array arr;
+        int ;
+        int** v_modifiable;
+    }
+    void buffer_create_from_const_data(int*, const(void)*, int, );
+    union union_array__uint16_t
+    {
+        struct_array arr;
+        int ;
+        int** v_modifiable;
+    }
+    union union_array__uint32_t
+    {
+        struct_array arr;
+        int ;
+        int** v_modifiable;
+    }
+    union union_array__uint64_t
+    {
+        struct_array arr;
+        int ;
+        int** v_modifiable;
+    }
+    union union_array__uint
+    {
+        struct_array arr;
+        const(const(uint)*)* v;
+        uint** v_modifiable;
+    }
+    union union_array__void_array
+    {
+        struct_array arr;
+        void*** v;
+        void*** v_modifiable;
+    }
+
+
+
+
+    int* buffer_create_dynamic();
+
+    void buffer_free(int**, );
+    void* buffer_free_without_data(int**, );
+    void buffer_write(int*, int, const(void)*, int, );
+    void buffer_append(int*, const(void)*, int, );
+    void buffer_append_c(int*, ubyte, );
+    void buffer_insert(int*, int, const(void)*, int, );
+
+    void buffer_delete(int*, int, int, );
+    void buffer_write_zero(int*, int, int, );
+    void buffer_append_zero(int*, int, );
+
+    void buffer_insert_zero(int*, int, int, );
+
+    void buffer_copy(int*, int, const(int)*, int, int, );
+    void buffer_append_buf(int*, const(int)*, int, int, );
+    void* buffer_get_space_unsafe(int*, int, int, );
+
+    void* buffer_append_space_unsafe(int*, int, );
+    struct struct_module_context_id
+    {
+        uint* module_id_register;
+        uint module_id;
+        int module_id_set;
+    }
+    uint module_get_context_id(struct_module_context_id*, );
+    void buffer_set_used_size(int*, int, );
+    int buffer_cmp();
+    void array_create_from_buffer_i(struct_array*, int*, int, );
+    void array_create_i(struct_array*, int, int, uint, );
+    void array_free_i(struct_array*, );
+    int array_is_created_i();
+    void buffer_truncate_rshift_bits(int*, int, );
+    void* array_idx_get_space_i(struct_array*, uint, );
+    void array_idx_set_i(struct_array*, uint, const(void)*, );
+    void array_idx_clear_i(struct_array*, uint, );
+    void* array_append_space_i(struct_array*, );
+    void* array_insert_space_i(struct_array*, uint, );
+    void array_copy(struct_array*, uint, const struct_array*, uint, uint, );
+    void array_swap_i(struct_array*, struct_array*, );
+    void array_reverse_i(struct_array*, );
+    void array_sort_i(struct_array*, int function(const(void)*, const(void)*), );
+    void* array_bsearch_i(struct_array*, const(void)*, int function(const(void)*, const(void)*), );
+    const(void)* array_lsearch_i(const struct_array*, const(void)*, int function(const(void)*, const(void)*), );
+    void* array_lsearch_modifiable_i(struct_array*, const(void)*, int function(const(void)*, const(void)*), );
+}
+
+extern(C) {
+    alias istream_callback_t = context;
+    alias dev_t = __dev_t;
+
+
+    struct_istream* i_stream_create_fd(int, int, );
+
+
+    struct_istream* i_stream_create_fd_autoclose(int*, int, );
+
+
+    alias gid_t = __gid_t;
+    struct_istream* i_stream_create_file(const(char)*, int, );
+    struct struct_stat
+    {
+        __dev_t st_dev;
+        __ino_t st_ino;
+        __nlink_t st_nlink;
+        __mode_t st_mode;
+        __uid_t st_uid;
+        __gid_t st_gid;
+        int __pad0;
+        __dev_t st_rdev;
+        __off_t st_size;
+        __blksize_t st_blksize;
+        __blkcnt_t st_blocks;
+        struct_timespec st_atim;
+        struct_timespec st_mtim;
+        struct_timespec st_ctim;
+        __syscall_slong_t[3] __glibc_reserved;
+    }
+
+
+    struct_istream* i_stream_create_mmap(int, int, int, int, int, );
+    alias ino_t = __ino_t;
+    struct_istream* i_stream_create_from_data(const(void)*, int, );
+    alias mode_t = __mode_t;
+
+
+    struct_istream* i_stream_create_copy_from_data(const(void)*, int, );
+
+
+
+    alias nlink_t = __nlink_t;
+
+
+
+
+
+    struct_istream* i_stream_create_limit(struct_istream*, int, );
+    struct_istream* i_stream_create_range(struct_istream*, int, int, );
+    struct_istream* i_stream_create_error(int, );
+    alias off_t = __off_t;
+
+
+    void i_stream_set_name(struct_istream*, const(char)*, );
+    alias uid_t = __uid_t;
+    const(char)* i_stream_get_name(struct_istream*, );
+
+
+    void i_stream_destroy(struct_istream**, );
+    void i_stream_ref(struct_istream*, );
+    void i_stream_unref(struct_istream**, );
+    void i_stream_remove_destroy_callback(struct_istream*, unknown*, );
+    int i_stream_get_fd(struct_istream*, );
+
+
+    const(char)* i_stream_get_error(struct_istream*, );
+    const(char)* i_stream_get_disconnect_reason(struct_istream*, );
+
+
+    void i_stream_close(struct_istream*, );
+
+
+    void i_stream_sync(struct_istream*, );
+
+
+    void i_stream_set_init_buffer_size(struct_istream*, int, );
+
+
+    void i_stream_set_max_buffer_size(struct_istream*, int, );
+    int i_stream_get_max_buffer_size();
+    void i_stream_set_return_partial_line(struct_istream*, int, );
+
+
+    void i_stream_set_persistent_buffers(struct_istream*, int, );
+    void i_stream_set_blocking(struct_istream*, int, );
+
+
+    struct _Anonymous_4
+    {
+        int[2] __val;
+    }
+    int i_stream_read();
+    void i_stream_skip(struct_istream*, int, );
+
+
+
+
+
+
+    void i_stream_seek(struct_istream*, int, );
+    void i_stream_seek_mark(struct_istream*, int, );
+
+
+
+
+
+
+    int i_stream_stat(struct_istream*, int, const struct_stat**, );
+
+
+
+
+
+
+    int i_stream_get_size(struct_istream*, int, int*, );
+
+
+
+
+    int i_stream_have_bytes_left();
+    int i_stream_read_eof();
+
+
+
+
+
+
+    int i_stream_get_absolute_offset();
+    char* i_stream_next_line(struct_istream*, );
+    char* i_stream_read_next_line(struct_istream*, );
+
+
+
+
+    int i_stream_last_line_crlf();
+    const(ubyte)* i_stream_get_data(struct_istream*, int*, );
+    int i_stream_get_data_size();
+    ubyte* i_stream_get_modifiable_data(struct_istream*, int*, );
+    int stat(const(char)*, struct_stat*, );
+    int i_stream_read_data(struct_istream*, const(ubyte)**, int*, int, );
+
+
+
+
+    int fstat(int, struct_stat*, );
+    int i_stream_read_bytes(struct_istream*, const(ubyte)**, int*, int, );
+    int i_stream_read_more(struct_istream*, const(ubyte)**, int*, );
+    void i_stream_get_last_read_time(struct_istream*, struct_timeval*, );
+    int i_stream_add_data();
+    int fstatat(int, const(char)*, struct_stat*, int, );
+    void i_stream_set_input_pending(struct_istream*, int, );
+    void i_stream_switch_ioloop_to(struct_istream*, struct_ioloop*, );
+    void i_stream_switch_ioloop(struct_istream*, );
+    int lstat(const(char)*, struct_stat*, );
+    int chmod(const(char)*, __mode_t, );
+    int lchmod(const(char)*, __mode_t, );
+    int fchmod(int, __mode_t, );
+    int fchmodat(int, const(char)*, __mode_t, int, );
+    __mode_t umask(__mode_t, );
+    int mkdir(const(char)*, __mode_t, );
+    int mkdirat(int, const(char)*, __mode_t, );
+    int mknod(const(char)*, __mode_t, __dev_t, );
+    int mknodat(int, const(char)*, __mode_t, __dev_t, );
+    int mkfifo(const(char)*, __mode_t, );
+    int mkfifoat(int, const(char)*, __mode_t, );
+    int utimensat(int, const(char)*, const struct_timespec*, int, );
+    int futimens(int, const struct_timespec*, );
+
+
+    int __fxstat(int, int, struct_stat*, );
+    int __xstat(int, const(char)*, struct_stat*, );
+    int __lxstat(int, const(char)*, struct_stat*, );
+    int __fxstatat(int, int, const(char)*, struct_stat*, int, );
+    int __xmknod(int, const(char)*, __mode_t, __dev_t*, );
+    int __xmknodat(int, int, const(char)*, __mode_t, __dev_t*, );
+}
+
+extern(C) {
+
+
+    struct struct_seq_range
+    {
+        int seq1;
+        int seq2;
+    }
+    int ARRAY_DEFINE_TYPE(...);
+    struct struct_seq_range_iter
+    {
+        unknown ARRAY_TYPE;
+        uint prev_n;
+        uint prev_idx;
+    }
+    extern __gshared int ATTR_PURE;
+    void seq_range_array_add_with_init(unknown, );
+    void seq_range_array_add_range(unknown, );
+    uint seq_range_array_add_range_count(unknown, );
+    void seq_range_array_merge(unknown, );
+    extern __gshared int ATTR_NOWARN_UNUSED_RESULT;
+    void seq_range_array_remove_nth(unknown, );
+    void seq_range_array_invert(unknown, );
+    void seq_range_array_iter_init(struct_seq_range_iter*, unknown, );
+    int seq_range_array_iter_nth();
+}
+import core.stdc.config;
+import core.stdc.stdarg: va_list;
+struct struct___locale_data { int dummy; }
+
+extern(C) {
+    alias __sigset_t = _Anonymous_1;
+    struct _Anonymous_1
+    {
+        c_ulong[16] __val;
+    }
+    alias timer_t = __timer_t;
+    struct struct_io;
+    struct struct_tm
+    {
+        int tm_sec;
+        int tm_min;
+        int tm_hour;
+        int tm_mday;
+        int tm_mon;
+        int tm_year;
+        int tm_wday;
+        int tm_yday;
+        int tm_isdst;
+        c_long tm_gmtoff;
+        const(char)* tm_zone;
+    }
+    alias time_t = __time_t;
+    alias clockid_t = __clockid_t;
+    alias sigset_t = __sigset_t;
+    alias clock_t = __clock_t;
+    struct struct_timeout;
+    struct struct_timespec
+    {
+        __time_t tv_sec;
+        __syscall_slong_t tv_nsec;
+    }
+    struct struct_itimerspec
+    {
+        struct_timespec it_interval;
+        struct_timespec it_value;
+    }
+    struct struct_timeval
+    {
+        __time_t tv_sec;
+        __suseconds_t tv_usec;
+    }
+    struct struct_ioloop;
+
+
+    struct struct_istream;
+
+
+
+
+    enum enum_io_condition
+    {
+        IO_READ = 1,
+        IO_WRITE = 2,
+        IO_ERROR = 4,
+        IO_NOTIFY = 8,
+    }
+    enum
+    {
+        IO_READ = 1,
+        IO_WRITE = 2,
+        IO_ERROR = 4,
+        IO_NOTIFY = 8,
+    }
+    enum enum_io_notify_result
+    {
+        IO_NOTIFY_ADDED = 0,
+        IO_NOTIFY_NOTFOUND = 1,
+        IO_NOTIFY_NOSUPPORT = 2,
+    }
+    enum
+    {
+        IO_NOTIFY_ADDED = 0,
+        IO_NOTIFY_NOTFOUND = 1,
+        IO_NOTIFY_NOSUPPORT = 2,
+    }
+    alias locale_t = __locale_t;
+
+
+
+
+    alias suseconds_t = __suseconds_t;
+
+
+    struct struct___locale_struct
+    {
+        struct___locale_data*[13] __locales;
+        const(ushort)* __ctype_b;
+        const(int)* __ctype_tolower;
+        const(int)* __ctype_toupper;
+        const(char)*[13] __names;
+    }
+
+
+
+
+    alias __u_char = ubyte;
+    alias __u_short = ushort;
+    alias __u_int = uint;
+    alias io_callback_t = context;
+    alias __u_long = c_ulong;
+    alias timeout_callback_t = context;
+
+
+
+
+    alias io_loop_time_moved_callback_t = old_time;
+
+
+    alias io_switch_callback_t = prev_ioloop;
+    alias __int8_t = byte;
+    alias __uint8_t = ubyte;
+
+
+    alias __int16_t = short;
+
+
+    alias __uint16_t = ushort;
+    alias __int32_t = int;
+    extern __gshared time_t ioloop_time;
+
+
+    alias __uint32_t = uint;
+    extern __gshared struct_timeval ioloop_timeval;
+
+
+
+
+    alias __locale_t = struct___locale_struct;
+    extern __gshared struct_ioloop* current_ioloop;
+
+
+    alias __int64_t = c_long;
+    alias __uint64_t = c_ulong;
+
+
+
+
+    extern __gshared int ioloop_global_wait_usecs;
+    struct struct_sigevent;
+    alias __fd_mask = c_long;
+
+
+
+
+
+
+    alias __quad_t = c_long;
+
+
+    struct struct_timezone
+    {
+        int tz_minuteswest;
+        int tz_dsttime;
+    }
+    alias __u_quad_t = c_ulong;
+
+
+
+
+    alias pid_t = __pid_t;
+    alias __timezone_ptr_t = struct_timezone;
+
+
+
+
+
+    struct _Anonymous_2
+    {
+        __fd_mask[16] __fds_bits;
+    }
+    alias fd_set = _Anonymous_2;
+    alias __intmax_t = c_long;
+
+
+
+
+
+    alias __uintmax_t = c_ulong;
+    int gettimeofday(struct_timeval*, __timezone_ptr_t, );
+    clock_t clock();
+    int settimeofday(const struct_timeval*, const struct_timezone*, );
+    time_t time(time_t*, );
+    alias fd_mask = __fd_mask;
+    double difftime(time_t, time_t, );
+
+
+
+
+    time_t mktime(struct_tm*, );
+    int adjtime(const struct_timeval*, struct_timeval*, );
+    int strftime();
+    enum enum___itimer_which
+    {
+        ITIMER_REAL = 0,
+        ITIMER_VIRTUAL = 1,
+        ITIMER_PROF = 2,
+    }
+    enum
+    {
+        ITIMER_REAL = 0,
+        ITIMER_VIRTUAL = 1,
+        ITIMER_PROF = 2,
+    }
+    void io_remove(struct_io**, );
+
+
+
+
+
+
+    void io_remove_closed(struct_io**, );
+
+
+
+
+    int select(int, fd_set*, fd_set*, fd_set*, struct_timeval*, );
+    struct struct_itimerval
+    {
+        struct_timeval it_interval;
+        struct_timeval it_value;
+    }
+    int strftime_l();
+
+
+    void io_set_pending(struct_io*, );
+    int pselect(int, fd_set*, fd_set*, fd_set*, const struct_timespec*, const(const __sigset_t)*, );
+
+
+
+
+    alias __itimer_which_t = int;
+
+
+
+
+    struct_tm* gmtime(const(const time_t)*, );
+    int getitimer(__itimer_which_t, struct_itimerval*, );
+    struct_tm* localtime(const(const time_t)*, );
+
+
+
+
+
+
+    struct_tm* gmtime_r(const(const time_t)*, struct_tm*, );
+    int setitimer(__itimer_which_t, const struct_itimerval*, struct_itimerval*, );
+
+
+
+
+
+
+    alias __dev_t = c_ulong;
+    struct_tm* localtime_r(const(const time_t)*, struct_tm*, );
+
+
+
+
+
+    alias __uid_t = uint;
+    int utimes(const(char)*, const struct_timeval*, );
+    alias __gid_t = uint;
+    alias __ino_t = c_ulong;
+    alias __ino64_t = c_ulong;
+    alias __mode_t = uint;
+
+
+    alias __nlink_t = c_ulong;
+    char* asctime(const struct_tm*, );
+    alias __off_t = c_long;
+
+
+    int lutimes(const(char)*, const struct_timeval*, );
+    alias __off64_t = c_long;
+    char* ctime(const(const time_t)*, );
+
+
+
+
+
+    alias __pid_t = int;
+    struct _Anonymous_3
+    {
+        int[2] __val;
+    }
+    alias __fsid_t = _Anonymous_3;
+    int futimes(int, const struct_timeval*, );
+    alias __clock_t = c_long;
+    alias __rlim_t = c_ulong;
+
+
+    alias __rlim64_t = c_ulong;
+    alias __id_t = uint;
+    alias __time_t = c_long;
+    char* asctime_r(const struct_tm*, char*, );
+    alias __useconds_t = uint;
+    alias __suseconds_t = c_long;
+    alias __daddr_t = int;
+
+
+
+
+
+    char* ctime_r(const(const time_t)*, char*, );
+    alias __key_t = int;
+    alias __clockid_t = int;
+
+
+
+    alias __timer_t = void*;
+
+
+    extern __gshared char*[2] __tzname;
+
+
+    extern __gshared int __daylight;
+
+
+
+
+
+    extern __gshared c_long __timezone;
+
+
+
+
+
+    alias __blksize_t = c_long;
+    extern __gshared char*[2] tzname;
+    alias __blkcnt_t = c_long;
+    void timeout_remove(struct_timeout**, );
+
+
+
+    alias __blkcnt64_t = c_long;
+    void tzset();
+
+
+    void timeout_reset(struct_timeout*, );
+    alias __fsblkcnt_t = c_ulong;
+    alias __fsblkcnt64_t = c_ulong;
+    void io_loop_time_refresh();
+    extern __gshared int daylight;
+    extern __gshared c_long timezone;
+    alias __fsfilcnt_t = c_ulong;
+    void io_loop_run(struct_ioloop*, );
+    alias __fsfilcnt64_t = c_ulong;
+    void io_loop_stop(struct_ioloop*, );
+
+
+
+    int io_loop_is_running();
+    alias __fsword_t = c_long;
+
+
+
+    void io_loop_set_running(struct_ioloop*, );
+    alias __ssize_t = c_long;
+    int stime(const(const time_t)*, );
+    void io_loop_handler_run(struct_ioloop*, );
+
+
+
+
+    struct_ioloop* io_loop_create();
+    alias __syscall_slong_t = c_long;
+    void io_loop_set_max_fd_count(struct_ioloop*, uint, );
+    alias __syscall_ulong_t = c_ulong;
+
+
+
+    void io_loop_destroy(struct_ioloop**, );
+    alias __loff_t = __off64_t;
+    alias __qaddr_t = __quad_t;
+    void io_loop_set_time_moved_callback(struct_ioloop*, io_loop_time_moved_callback_t*, );
+    alias __caddr_t = char*;
+    void io_loop_set_current(struct_ioloop*, );
+    alias __intptr_t = c_long;
+    time_t timegm(struct_tm*, );
+    void io_loop_add_switch_callback(io_switch_callback_t*, );
+    alias __socklen_t = uint;
+    void io_loop_remove_switch_callback(io_switch_callback_t*, );
+    time_t timelocal(struct_tm*, );
+    int dysize(int, );
+    alias __sig_atomic_t = int;
+
+
+    struct struct_ioloop_context;
+    struct_ioloop_context* io_loop_context_new(struct_ioloop*, );
+    void io_loop_context_ref(struct_ioloop_context*, );
+    void io_loop_context_unref(struct_ioloop_context**, );
+    int nanosleep(const struct_timespec*, struct_timespec*, );
+
+
+    int clock_getres(clockid_t, struct_timespec*, );
+    int clock_gettime(clockid_t, struct_timespec*, );
+
+
+    void io_loop_context_add_callbacks(struct_ioloop_context*, io_callback_t*, io_callback_t*, void*, );
+    int clock_settime(clockid_t, const struct_timespec*, );
+    void io_loop_context_remove_callbacks(struct_ioloop_context*, io_callback_t*, io_callback_t*, void*, );
+    int clock_nanosleep(clockid_t, int, const struct_timespec*, struct_timespec*, );
+    int clock_getcpuclockid(pid_t, clockid_t*, );
+
+
+
+
+
+
+    struct_ioloop_context* io_loop_get_current_context(struct_ioloop*, );
+    int timer_create(clockid_t, struct_sigevent*, timer_t*, );
+    int timer_delete(timer_t, );
+    void io_loop_context_activate(struct_ioloop_context*, );
+
+
+    int timer_settime(timer_t, int, const struct_itimerspec*, struct_itimerspec*, );
+    void io_loop_context_deactivate(struct_ioloop_context*, );
+    int timer_gettime(timer_t, struct_itimerspec*, );
+
+
+
+
+
+    int timer_getoverrun(timer_t, );
+    int io_loop_extract_notify_fd(struct_ioloop*, );
+
+
+
+
+    int timespec_get(struct_timespec*, int, );
+    struct_io_wait_timer* io_wait_timer_add(const(char)*, uint, );
+    struct struct_io_wait_timer;
+
+
+
+    struct_io_wait_timer* io_wait_timer_add_to(struct_ioloop*, const(char)*, uint, );
+
+
+
+
+
+    struct_io_wait_timer* io_wait_timer_move(struct_io_wait_timer**, );
+    struct_io_wait_timer* io_wait_timer_move_to(struct_io_wait_timer**, struct_ioloop*, );
+    void io_wait_timer_remove(struct_io_wait_timer**, );
+    int io_wait_timer_get_usecs();
+
+
+
+    struct_io* io_loop_move_io_to(struct_ioloop*, struct_io**, );
+    struct_io* io_loop_move_io(struct_io**, );
+    struct_timeout* io_loop_move_timeout_to(struct_ioloop*, struct_timeout**, );
+    struct_timeout* io_loop_move_timeout(struct_timeout**, );
+
+
+    int io_loop_have_ios();
+    int io_loop_have_immediate_timeouts();
+    int io_loop_get_wait_usecs();
+
+
+
+
+
+    enum_io_condition io_loop_find_fd_conditions(struct_ioloop*, int, );
+}
+
+
+import core.stdc.config;
+import core.stdc.stdarg: va_list;
+struct struct___locale_data { int dummy; }
+
+extern(C) {
+    alias __sigset_t = _Anonymous_1;
+
+
+    struct _Anonymous_1
+    {
+        c_ulong[16] __val;
+    }
+    struct struct_osockaddr
+    {
+        ushort sa_family;
+        ubyte[14] sa_data;
+    }
+
+
+    alias clockid_t = __clockid_t;
+    alias clock_t = __clock_t;
+
+
+
+
+    alias sigset_t = __sigset_t;
+    alias timer_t = __timer_t;
+    alias time_t = __time_t;
+    struct struct_timespec
+    {
+        __time_t tv_sec;
+        __syscall_slong_t tv_nsec;
+    }
+    struct struct_timeval
+    {
+        __time_t tv_sec;
+        __suseconds_t tv_usec;
+    }
+
+
+
+
+    struct struct_http_request_target;
+    enum enum_uri_parse_flags
+    {
+        URI_PARSE_SCHEME_EXTERNAL = 0,
+        URI_PARSE_ALLOW_FRAGMENT_PART = 1,
+    }
+    enum
+    {
+        URI_PARSE_SCHEME_EXTERNAL = 0,
+        URI_PARSE_ALLOW_FRAGMENT_PART = 1,
+    }
+
+
+
+
+    struct struct_http_url
+    {
+        struct_uri_host host;
+        in_port_t port;
+        const(char)* user;
+        const(char)* password;
+        const(char)* path;
+        const(char)* enc_query;
+        const(char)* enc_fragment;
+        int have_ssl;
+    }
+    struct struct_uri_host
+    {
+        const(char)* name;
+        struct_ip_addr ip;
+    }
+    struct struct_uri_authority
+    {
+        const(char)* enc_userinfo;
+        struct_uri_host host;
+        in_port_t port;
+    }
+    struct struct_ip_addr
+    {
+        ushort family;
+        union _Anonymous_2
+        {
+            struct_in6_addr ip6;
+            struct_in_addr ip4;
+        }
+        _Anonymous_2 u;
+    }
+    enum enum___socket_type
+    {
+        SOCK_STREAM = 1,
+        SOCK_DGRAM = 2,
+        SOCK_RAW = 3,
+        SOCK_RDM = 4,
+        SOCK_SEQPACKET = 5,
+        SOCK_DCCP = 6,
+        SOCK_PACKET = 10,
+        SOCK_CLOEXEC = 524288,
+        SOCK_NONBLOCK = 2048,
+    }
+    enum
+    {
+        SOCK_STREAM = 1,
+        SOCK_DGRAM = 2,
+        SOCK_RAW = 3,
+        SOCK_RDM = 4,
+        SOCK_SEQPACKET = 5,
+        SOCK_DCCP = 6,
+        SOCK_PACKET = 10,
+        SOCK_CLOEXEC = 524288,
+        SOCK_NONBLOCK = 2048,
+    }
+    alias uint8_t = __uint8_t;
+    alias int8_t = __int8_t;
+
+
+    alias int16_t = __int16_t;
+    alias uint16_t = __uint16_t;
+
+
+    struct struct_iovec
+    {
+        void* iov_base;
+        int iov_len;
+    }
+    struct struct_netent
+    {
+        char* n_name;
+        char** n_aliases;
+        int n_addrtype;
+        uint32_t n_net;
+    }
+
+
+
+
+    alias uint32_t = __uint32_t;
+    alias int32_t = __int32_t;
+    alias uint64_t = __uint64_t;
+    alias int64_t = __int64_t;
+    alias pthread_t = c_ulong;
+    alias sa_family_t = ushort;
+
+
+
+
+    alias __u_char = ubyte;
+    alias in_addr_t = uint32_t;
+    struct struct_uri_parser
+    {
+        int pool;
+        const(char)* error;
+        const(ubyte)* begin;
+        const(ubyte)* cur;
+        const(ubyte)* end;
+        int* tmpbuf;
+        int allow_pct_nul;
+    }
+
+
+    int ARRAY_DEFINE_TYPE(...);
+    struct struct_in_addr
+    {
+        in_addr_t s_addr;
+    }
+    alias __u_short = ushort;
+
+
+    __uint16_t __uint16_identity(__uint16_t, );
+
+
+    struct struct_net_unix_cred
+    {
+        uid_t uid;
+        gid_t gid;
+        pid_t pid;
+    }
+    alias __u_int = uint;
+    union _Anonymous_3
+    {
+        char[4] __size;
+        int __align;
+    }
+    alias pthread_mutexattr_t = _Anonymous_3;
+    alias socklen_t = __socklen_t;
+
+
+    alias __u_long = c_ulong;
+    alias u_char = __u_char;
+
+
+
+
+    in_addr_t inet_addr(const(char)*, );
+    alias u_short = __u_short;
+
+
+
+
+
+
+
+    alias u_int = __u_int;
+
+
+
+
+
+    alias u_long = __u_long;
+    alias __int8_t = byte;
+    enum enum_http_url_parse_flags
+    {
+        HTTP_URL_PARSE_SCHEME_EXTERNAL = 1,
+        HTTP_URL_ALLOW_FRAGMENT_PART = 2,
+        HTTP_URL_ALLOW_USERINFO_PART = 4,
+        HTTP_URL_ALLOW_PCT_NUL = 8,
+    }
+    enum
+    {
+        HTTP_URL_PARSE_SCHEME_EXTERNAL = 1,
+        HTTP_URL_ALLOW_FRAGMENT_PART = 2,
+        HTTP_URL_ALLOW_USERINFO_PART = 4,
+        HTTP_URL_ALLOW_PCT_NUL = 8,
+    }
+
+
+    alias quad_t = __quad_t;
+    alias __uint8_t = ubyte;
+    in_addr_t inet_lnaof(struct_in_addr, );
+    __uint32_t __uint32_identity(__uint32_t, );
+
+
+    alias __int16_t = short;
+    alias u_quad_t = __u_quad_t;
+    alias __uint16_t = ushort;
+    alias fsid_t = __fsid_t;
+    enum _Anonymous_4
+    {
+        IPPROTO_IP = 0,
+        IPPROTO_ICMP = 1,
+        IPPROTO_IGMP = 2,
+        IPPROTO_IPIP = 4,
+        IPPROTO_TCP = 6,
+        IPPROTO_EGP = 8,
+        IPPROTO_PUP = 12,
+        IPPROTO_UDP = 17,
+        IPPROTO_IDP = 22,
+        IPPROTO_TP = 29,
+        IPPROTO_DCCP = 33,
+        IPPROTO_IPV6 = 41,
+        IPPROTO_RSVP = 46,
+        IPPROTO_GRE = 47,
+        IPPROTO_ESP = 50,
+        IPPROTO_AH = 51,
+        IPPROTO_MTP = 92,
+        IPPROTO_BEETPH = 94,
+        IPPROTO_ENCAP = 98,
+        IPPROTO_PIM = 103,
+        IPPROTO_COMP = 108,
+        IPPROTO_SCTP = 132,
+        IPPROTO_UDPLITE = 136,
+        IPPROTO_MPLS = 137,
+        IPPROTO_RAW = 255,
+        IPPROTO_MAX = 256,
+    }
+    enum
+    {
+        IPPROTO_IP = 0,
+        IPPROTO_ICMP = 1,
+        IPPROTO_IGMP = 2,
+        IPPROTO_IPIP = 4,
+        IPPROTO_TCP = 6,
+        IPPROTO_EGP = 8,
+        IPPROTO_PUP = 12,
+        IPPROTO_UDP = 17,
+        IPPROTO_IDP = 22,
+        IPPROTO_TP = 29,
+        IPPROTO_DCCP = 33,
+        IPPROTO_IPV6 = 41,
+        IPPROTO_RSVP = 46,
+        IPPROTO_GRE = 47,
+        IPPROTO_ESP = 50,
+        IPPROTO_AH = 51,
+        IPPROTO_MTP = 92,
+        IPPROTO_BEETPH = 94,
+        IPPROTO_ENCAP = 98,
+        IPPROTO_PIM = 103,
+        IPPROTO_COMP = 108,
+        IPPROTO_SCTP = 132,
+        IPPROTO_UDPLITE = 136,
+        IPPROTO_MPLS = 137,
+        IPPROTO_RAW = 255,
+        IPPROTO_MAX = 256,
+    }
+
+
+    alias __int32_t = int;
+
+
+
+
+
+
+    struct_in_addr inet_makeaddr(in_addr_t, in_addr_t, );
+
+
+    union _Anonymous_5
+    {
+        char[4] __size;
+        int __align;
+    }
+    enum _Anonymous_6
+    {
+        SHUT_RD = 0,
+        SHUT_WR = 1,
+        SHUT_RDWR = 2,
+    }
+    enum
+    {
+        SHUT_RD = 0,
+        SHUT_WR = 1,
+        SHUT_RDWR = 2,
+    }
+
+
+
+
+    alias pthread_condattr_t = _Anonymous_5;
+
+
+
+
+    alias __uint32_t = uint;
+    alias suseconds_t = __suseconds_t;
+    alias __int64_t = c_long;
+
+
+
+
+
+
+    __uint64_t __uint64_identity(__uint64_t, );
+
+
+    alias __uint64_t = c_ulong;
+
+
+
+
+    alias loff_t = __loff_t;
+
+
+
+
+
+
+    enum enum_net_listen_flags
+    {
+        NET_LISTEN_FLAG_REUSEPORT = 1,
+    }
+    enum
+    {
+        NET_LISTEN_FLAG_REUSEPORT = 1,
+    }
+    int uri_parse_pct_encoded(struct_uri_parser*, ubyte*, );
+    in_addr_t inet_netof(struct_in_addr, );
+
+
+
+
+
+
+    struct struct_rpcent
+    {
+        char* r_name;
+        char** r_aliases;
+        int r_number;
+    }
+    alias ino_t = __ino_t;
+    int http_url_parse(const(char)*, struct_http_url*, enum_http_url_parse_flags, int, struct_http_url**, const(char)**, );
+
+
+    alias pthread_key_t = uint;
+    in_addr_t inet_network(const(char)*, );
+
+
+    alias __fd_mask = c_long;
+    int uri_parse_unreserved(struct_uri_parser*, int*, );
+
+
+    int http_url_request_target_parse(const(char)*, const(char)*, int, struct_http_request_target*, const(char)**, );
+    alias __quad_t = c_long;
+    char* inet_ntoa(struct_in_addr, );
+
+
+    alias pthread_once_t = int;
+
+
+    void setrpcent(int, );
+    extern __gshared const struct_ip_addr net_ip4_any;
+
+
+    alias __u_quad_t = c_ulong;
+
+
+
+
+    extern __gshared const struct_ip_addr net_ip6_any;
+    void endrpcent();
+    int uri_parse_unreserved_pct(struct_uri_parser*, int*, );
+    struct_rpcent* getrpcbyname(const(char)*, );
+    union union_pthread_attr_t
+    {
+        char[56] __size;
+        c_long __align;
+    }
+
+
+
+
+    extern __gshared const struct_ip_addr net_ip4_loopback;
+    struct_rpcent* getrpcbynumber(int, );
+
+
+
+
+
+
+    extern __gshared const struct_ip_addr net_ip6_loopback;
+
+
+
+
+
+
+    struct_rpcent* getrpcent();
+    int inet_pton(int, const(char)*, void*, );
+    struct _Anonymous_7
+    {
+        __fd_mask[16] __fds_bits;
+    }
+
+
+
+
+
+
+    alias fd_set = _Anonymous_7;
+    int* __h_errno_location();
+
+
+
+
+    alias dev_t = __dev_t;
+
+
+    int getrpcbyname_r(const(char)*, struct_rpcent*, char*, int, struct_rpcent**, );
+    int net_ip_compare();
+    in_port_t http_url_get_port_default(const struct_http_url*, in_port_t, );
+    alias __intmax_t = c_long;
+    alias pthread_attr_t = union_pthread_attr_t;
+    alias __uintmax_t = c_ulong;
+    int net_ip_cmp(const struct_ip_addr*, const struct_ip_addr*, );
+    uint net_ip_hash(const struct_ip_addr*, );
+    int getrpcbynumber_r(int, struct_rpcent*, char*, int, struct_rpcent**, );
+    const(char)* inet_ntop(int, const(void)*, char*, socklen_t, );
+
+
+
+
+
+
+    alias gid_t = __gid_t;
+
+
+
+
+    struct struct___pthread_rwlock_arch_t
+    {
+        uint __readers;
+        uint __writers;
+        uint __wrphase_futex;
+        uint __writers_futex;
+        uint __pad3;
+        uint __pad4;
+        int __cur_writer;
+        int __shared;
+        byte __rwelision;
+        ubyte[7] __pad1;
+        c_ulong __pad2;
+        uint __flags;
+    }
+
+
+    in_port_t http_url_get_port(const struct_http_url*, );
+    union _Anonymous_8
+    {
+        struct___pthread_mutex_s __data;
+        char[40] __size;
+        c_long __align;
+    }
+    alias pthread_mutex_t = _Anonymous_8;
+    int getrpcent_r(struct_rpcent*, char*, int, struct_rpcent**, );
+    alias mode_t = __mode_t;
+    int inet_aton(const(char)*, struct_in_addr*, );
+
+
+
+
+
+
+    int net_connect_udp(const struct_ip_addr*, in_port_t, const struct_ip_addr*, );
+
+
+
+
+    uint gnu_dev_major(__dev_t, );
+
+
+
+
+
+
+    uint gnu_dev_minor(__dev_t, );
+    __dev_t gnu_dev_makedev(uint, uint, );
+
+
+    alias nlink_t = __nlink_t;
+    alias pthread_cond_t = _Anonymous_9;
+
+
+    union _Anonymous_9
+    {
+        struct___pthread_cond_s __data;
+        char[48] __size;
+        long __align;
+    }
+    void http_url_copy_authority(int, struct_http_url*, const struct_http_url*, );
+
+
+
+
+
+
+    int net_try_bind(const struct_ip_addr*, );
+
+
+
+
+    char* inet_neta(in_addr_t, char*, int, );
+
+
+
+
+    alias fd_mask = __fd_mask;
+    int net_connect_unix(const(char)*, );
+    struct_http_url* http_url_clone_authority(int, const struct_http_url*, );
+    alias uid_t = __uid_t;
+
+
+
+
+    int net_connect_unix_with_retries(const(char)*, uint, );
+
+
+
+
+    void http_url_copy(int, struct_http_url*, const struct_http_url*, );
+
+
+
+
+    struct struct___pthread_internal_list
+    {
+        struct___pthread_internal_list* __prev;
+        struct___pthread_internal_list* __next;
+    }
+    alias __pthread_list_t = struct___pthread_internal_list;
+
+
+
+
+    char* inet_net_ntop(int, const(void)*, int, char*, int, );
+
+
+
+
+
+
+    void net_disconnect(int, );
+
+
+    void http_url_copy_with_userinfo(int, struct_http_url*, const struct_http_url*, );
+    struct_http_url* http_url_clone(int, const struct_http_url*, );
+
+
+    alias pthread_rwlock_t = _Anonymous_10;
+    union _Anonymous_10
+    {
+        struct___pthread_rwlock_arch_t __data;
+        char[56] __size;
+        c_long __align;
+    }
+    alias off_t = __off_t;
+
+
+
+
+    void net_set_nonblock(int, int, );
+    struct_http_url* http_url_clone_with_userinfo(int, const struct_http_url*, );
+
+
+
+
+
+
+    int inet_net_pton(int, const(char)*, void*, int, );
+    void herror(const(char)*, );
+
+
+    int net_set_tcp_nodelay(int, int, );
+    const(char)* hstrerror(int, );
+    union _Anonymous_11
+    {
+        char[8] __size;
+        c_long __align;
+    }
+    alias pthread_rwlockattr_t = _Anonymous_11;
+
+
+
+
+    int net_set_send_buffer_size(int, int, );
+    const(char)* http_url_create(const struct_http_url*, );
+    uint inet_nsap_addr(const(char)*, ubyte*, int, );
+
+
+
+
+
+
+    int net_set_recv_buffer_size(int, int, );
+
+
+
+
+
+
+    const(char)* http_url_create_host(const struct_http_url*, );
+
+
+
+
+
+
+    const(char)* http_url_create_authority(const struct_http_url*, );
+    const(char)* http_url_create_target(const struct_http_url*, );
+    struct struct_hostent
+    {
+        char* h_name;
+        char** h_aliases;
+        int h_addrtype;
+        int h_length;
+        char** h_addr_list;
+    }
+
+
+
+
+    alias pid_t = __pid_t;
+
+
+
+
+    int net_listen(const struct_ip_addr*, in_port_t*, int, );
+    int net_listen_full(const struct_ip_addr*, in_port_t*, enum_net_listen_flags*, int, );
+    char* inet_nsap_ntoa(int, const(ubyte)*, char*, );
+
+
+    enum _Anonymous_12
+    {
+        IPPROTO_HOPOPTS = 0,
+        IPPROTO_ROUTING = 43,
+        IPPROTO_FRAGMENT = 44,
+        IPPROTO_ICMPV6 = 58,
+        IPPROTO_NONE = 59,
+        IPPROTO_DSTOPTS = 60,
+        IPPROTO_MH = 135,
+    }
+    enum
+    {
+        IPPROTO_HOPOPTS = 0,
+        IPPROTO_ROUTING = 43,
+        IPPROTO_FRAGMENT = 44,
+        IPPROTO_ICMPV6 = 58,
+        IPPROTO_NONE = 59,
+        IPPROTO_DSTOPTS = 60,
+        IPPROTO_MH = 135,
+    }
+    void http_url_escape_path(int*, const(char)*, );
+
+
+
+
+
+
+    int select(int, fd_set*, fd_set*, fd_set*, struct_timeval*, );
+
+
+
+
+    void http_url_escape_param(int*, const(char)*, );
+    int net_listen_unix(const(char)*, int, );
+    int socket(int, int, int, );
+
+
+
+
+
+
+    alias pthread_spinlock_t = int;
+
+
+    alias id_t = __id_t;
+    int net_listen_unix_unlink_stale(const(char)*, int, );
+    int socketpair(int, int, int, int*, );
+    union _Anonymous_13
+    {
+        char[32] __size;
+        c_long __align;
+    }
+
+
+
+
+    alias pthread_barrier_t = _Anonymous_13;
+
+
+
+
+    alias ssize_t = __ssize_t;
+    int bind(int, const struct_sockaddr*, socklen_t, );
+
+
+    int pselect(int, fd_set*, fd_set*, fd_set*, const struct_timespec*, const(const __sigset_t)*, );
+
+
+
+
+    ssize_t net_receive(int, void*, int, );
+
+
+    alias pthread_barrierattr_t = _Anonymous_14;
+
+
+    union _Anonymous_14
+    {
+        char[4] __size;
+        int __align;
+    }
+    void sethostent(int, );
+
+
+    alias daddr_t = __daddr_t;
+
+
+    alias caddr_t = __caddr_t;
+
+
+    int getsockname(int, struct_sockaddr*, socklen_t*, );
+
+
+
+
+
+
+    int net_gethostbyname(const(char)*, struct_ip_addr**, uint*, );
+
+
+    struct struct___pthread_mutex_s
+    {
+        int __lock;
+        uint __count;
+        int __owner;
+        uint __nusers;
+        int __kind;
+        short __spins;
+        short __elision;
+        __pthread_list_t __list;
+    }
+
+
+
+
+    alias in_port_t = uint16_t;
+    void endhostent();
+
+
+
+
+
+
+    int net_gethostbyaddr(const struct_ip_addr*, const(char)**, );
+    enum _Anonymous_15
+    {
+        IPPORT_ECHO = 7,
+        IPPORT_DISCARD = 9,
+        IPPORT_SYSTAT = 11,
+        IPPORT_DAYTIME = 13,
+        IPPORT_NETSTAT = 15,
+        IPPORT_FTP = 21,
+        IPPORT_TELNET = 23,
+        IPPORT_SMTP = 25,
+        IPPORT_TIMESERVER = 37,
+        IPPORT_NAMESERVER = 42,
+        IPPORT_WHOIS = 43,
+        IPPORT_MTP = 57,
+        IPPORT_TFTP = 69,
+        IPPORT_RJE = 77,
+        IPPORT_FINGER = 79,
+        IPPORT_TTYLINK = 87,
+        IPPORT_SUPDUP = 95,
+        IPPORT_EXECSERVER = 512,
+        IPPORT_LOGINSERVER = 513,
+        IPPORT_CMDSERVER = 514,
+        IPPORT_EFSSERVER = 520,
+        IPPORT_BIFFUDP = 512,
+        IPPORT_WHOSERVER = 513,
+        IPPORT_ROUTESERVER = 520,
+        1024 = 1024,
+        IPPORT_USERRESERVED = 5000,
+    }
+    enum
+    {
+        IPPORT_ECHO = 7,
+        IPPORT_DISCARD = 9,
+        IPPORT_SYSTAT = 11,
+        IPPORT_DAYTIME = 13,
+        IPPORT_NETSTAT = 15,
+        IPPORT_FTP = 21,
+        IPPORT_TELNET = 23,
+        IPPORT_SMTP = 25,
+        IPPORT_TIMESERVER = 37,
+        IPPORT_NAMESERVER = 42,
+        IPPORT_WHOIS = 43,
+        IPPORT_MTP = 57,
+        IPPORT_TFTP = 69,
+        IPPORT_RJE = 77,
+        IPPORT_FINGER = 79,
+        IPPORT_TTYLINK = 87,
+        IPPORT_SUPDUP = 95,
+        IPPORT_EXECSERVER = 512,
+        IPPORT_LOGINSERVER = 513,
+        IPPORT_CMDSERVER = 514,
+        IPPORT_EFSSERVER = 520,
+        IPPORT_BIFFUDP = 512,
+        IPPORT_WHOSERVER = 513,
+        IPPORT_ROUTESERVER = 520,
+        1024 = 1024,
+        IPPORT_USERRESERVED = 5000,
+    }
+    alias key_t = __key_t;
+    int connect(int, const struct_sockaddr*, socklen_t, );
+
+
+
+
+
+
+    struct_hostent* gethostent();
+
+
+
+
+
+
+    int getpeername(int, struct_sockaddr*, socklen_t*, );
+    alias __dev_t = c_ulong;
+
+
+
+
+
+
+    alias __uid_t = uint;
+    alias __gid_t = uint;
+
+
+    struct_hostent* gethostbyaddr(const(void)*, __socklen_t, int, );
+
+
+
+
+    int net_getunixname(int, const(char)**, );
+    alias __ino_t = c_ulong;
+
+
+
+
+    alias __ino64_t = c_ulong;
+
+
+    alias __mode_t = uint;
+
+
+    ssize_t send(int, const(void)*, int, int, );
+
+
+    int net_getunixcred(int, struct_net_unix_cred*, );
+    alias __nlink_t = c_ulong;
+
+
+    alias __off_t = c_long;
+    alias __off64_t = c_long;
+    struct_hostent* gethostbyname(const(char)*, );
+    const(char)* net_ip2addr(const struct_ip_addr*, );
+    alias __pid_t = int;
+    struct struct_ip_opts
+    {
+        struct_in_addr ip_dst;
+        char[40] ip_opts;
+    }
+    struct _Anonymous_16
+    {
+        int[2] __val;
+    }
+    alias __fsid_t = _Anonymous_16;
+    int net_addr2ip(const(char)*, struct_ip_addr*, );
+
+
+    alias __clock_t = c_long;
+    alias __rlim_t = c_ulong;
+    ssize_t recv(int, void*, int, int, );
+
+
+
+
+
+
+    int net_str2port(const(char)*, in_port_t*, );
+    alias __rlim64_t = c_ulong;
+
+
+    alias __id_t = uint;
+    alias __time_t = c_long;
+    int net_str2port_zero(const(char)*, in_port_t*, );
+
+
+    alias __useconds_t = uint;
+    struct struct_ip_mreqn
+    {
+        struct_in_addr imr_multiaddr;
+        struct_in_addr imr_address;
+        int imr_ifindex;
+    }
+
+
+    alias __suseconds_t = c_long;
+
+
+    struct struct___pthread_cond_s
+    {
+        union _Anonymous_17
+        {
+            ulong __wseq;
+            struct _Anonymous_18
+            {
+                uint __low;
+                uint __high;
+            }
+            _Anonymous_18 __wseq32;
+        }
+        union _Anonymous_19
+        {
+            ulong __g1_start;
+            struct _Anonymous_20
+            {
+                uint __low;
+                uint __high;
+            }
+            _Anonymous_20 __g1_start32;
+        }
+        uint[2] __g_refs;
+        uint[2] __g_size;
+        uint __g1_orig_size;
+        uint __wrefs;
+        uint[2] __g_signals;
+    }
+
+
+
+
+    ssize_t sendto(int, const(void)*, int, int, const struct_sockaddr*, socklen_t, );
+    alias __daddr_t = int;
+    struct_hostent* gethostbyname2(const(char)*, int, );
+    alias __key_t = int;
+
+
+
+
+    int net_str2hostport(const(char)*, in_port_t, const(char)**, in_port_t*, );
+
+
+
+
+    alias __clockid_t = int;
+
+
+
+
+
+    struct struct_in_pktinfo
+    {
+        int ipi_ifindex;
+        struct_in_addr ipi_spec_dst;
+        struct_in_addr ipi_addr;
+    }
+
+
+    int net_ipport2str(const struct_ip_addr*, in_port_t, const(char)**, );
+
+
+    alias __timer_t = void*;
+
+
+
+
+    alias __blksize_t = c_long;
+
+
+    int net_ipv6_mapped_ipv4_convert(const struct_ip_addr*, struct_ip_addr*, );
+
+
+    ssize_t recvfrom(int, void*, int, int, struct_sockaddr*, socklen_t*, );
+
+
+
+
+    int gethostent_r(struct_hostent*, char*, int, struct_hostent**, int*, );
+
+
+    int net_geterror(int, );
+    alias __blkcnt_t = c_long;
+
+
+
+
+
+
+    alias __blkcnt64_t = c_long;
+    int gethostbyaddr_r(const(void)*, __socklen_t, int, struct_hostent*, char*, int, struct_hostent**, int*, );
+
+
+
+
+
+
+    alias __fsblkcnt_t = c_ulong;
+
+
+
+
+    alias __fsblkcnt64_t = c_ulong;
+
+
+    ssize_t sendmsg(int, const struct_msghdr*, int, );
+
+
+
+
+    struct struct_sockaddr
+    {
+        sa_family_t sa_family;
+        char[14] sa_data;
+    }
+
+
+    void uri_parser_init_data(struct_uri_parser*, int, const(ubyte)*, int, );
+
+
+
+
+
+    alias __fsfilcnt_t = c_ulong;
+
+
+    int net_parse_range(const(char)*, struct_ip_addr*, uint*, );
+
+
+    alias __fsfilcnt64_t = c_ulong;
+
+
+
+
+
+
+
+    int gethostbyname_r(const(char)*, struct_hostent*, char*, int, struct_hostent**, int*, );
+    void uri_parser_init(struct_uri_parser*, int, const(char)*, );
+
+
+    alias u_int8_t = ubyte;
+    alias u_int16_t = ushort;
+
+
+    alias __fsword_t = c_long;
+
+
+
+
+
+
+
+    alias u_int32_t = uint;
+
+
+    alias u_int64_t = c_ulong;
+
+
+
+
+    alias __ssize_t = c_long;
+
+
+
+
+    int* uri_parser_get_tmpbuf();
+
+
+
+
+
+
+    int gethostbyname2_r(const(char)*, int, struct_hostent*, char*, int, struct_hostent**, int*, );
+    alias register_t = c_long;
+
+
+
+
+
+
+
+    alias __syscall_slong_t = c_long;
+
+
+
+
+
+
+    alias __syscall_ulong_t = c_ulong;
+
+
+
+
+
+
+    struct struct_sockaddr_storage
+    {
+        sa_family_t ss_family;
+        char[118] __ss_padding;
+        c_ulong __ss_align;
+    }
+
+
+
+
+
+
+    int uri_parse_absolute_generic(struct_uri_parser*, enum_uri_parse_flags, );
+    alias __loff_t = __off64_t;
+
+
+
+
+    ssize_t recvmsg(int, struct_msghdr*, int, );
+    alias __qaddr_t = __quad_t;
+
+
+
+
+
+
+    alias __caddr_t = char*;
+    alias __intptr_t = c_long;
+
+
+    void setnetent(int, );
+    enum _Anonymous_21
+    {
+        MSG_OOB = 1,
+        MSG_PEEK = 2,
+        MSG_DONTROUTE = 4,
+        MSG_CTRUNC = 8,
+        MSG_PROXY = 16,
+        MSG_TRUNC = 32,
+        MSG_DONTWAIT = 64,
+        MSG_EOR = 128,
+        MSG_WAITALL = 256,
+        MSG_FIN = 512,
+        MSG_SYN = 1024,
+        MSG_CONFIRM = 2048,
+        MSG_RST = 4096,
+        MSG_ERRQUEUE = 8192,
+        MSG_NOSIGNAL = 16384,
+        MSG_MORE = 32768,
+        MSG_WAITFORONE = 65536,
+        MSG_BATCH = 262144,
+        MSG_FASTOPEN = 536870912,
+        MSG_CMSG_CLOEXEC = 1073741824,
+    }
+    enum
+    {
+        MSG_OOB = 1,
+        MSG_PEEK = 2,
+        MSG_DONTROUTE = 4,
+        MSG_CTRUNC = 8,
+        MSG_PROXY = 16,
+        MSG_TRUNC = 32,
+        MSG_DONTWAIT = 64,
+        MSG_EOR = 128,
+        MSG_WAITALL = 256,
+        MSG_FIN = 512,
+        MSG_SYN = 1024,
+        MSG_CONFIRM = 2048,
+        MSG_RST = 4096,
+        MSG_ERRQUEUE = 8192,
+        MSG_NOSIGNAL = 16384,
+        MSG_MORE = 32768,
+        MSG_WAITFORONE = 65536,
+        MSG_BATCH = 262144,
+        MSG_FASTOPEN = 536870912,
+        MSG_CMSG_CLOEXEC = 1073741824,
+    }
+
+
+    void uri_host_copy(int, struct_uri_host*, const struct_uri_host*, );
+    alias __socklen_t = uint;
+    void endnetent();
+
+
+
+
+    alias __sig_atomic_t = int;
+    int uri_check_data(const(ubyte)*, int, enum_uri_parse_flags, const(char)**, );
+
+
+    int getsockopt(int, int, int, void*, socklen_t*, );
+
+
+
+
+    struct_netent* getnetent();
+
+
+
+
+    struct struct_in6_addr
+    {
+        union _Anonymous_22
+        {
+            uint8_t[16] __u6_addr8;
+            uint16_t[8] __u6_addr16;
+            uint32_t[4] __u6_addr32;
+        }
+        _Anonymous_22 __in6_u;
+    }
+    int uri_check(const(char)*, enum_uri_parse_flags, const(char)**, );
+
+
+    alias blksize_t = __blksize_t;
+    int setsockopt(int, int, int, const(void)*, socklen_t, );
+
+
+
+
+    struct_netent* getnetbyaddr(uint32_t, int, );
+    alias blkcnt_t = __blkcnt_t;
+    int listen(int, int, );
+
+
+
+
+
+
+    struct_netent* getnetbyname(const(char)*, );
+    alias fsblkcnt_t = __fsblkcnt_t;
+    extern __gshared const struct_in6_addr in6addr_any;
+    alias fsfilcnt_t = __fsfilcnt_t;
+
+
+    extern __gshared const struct_in6_addr in6addr_loopback;
+    void uri_append_scheme(int*, const(char)*, );
+    int accept(int, struct_sockaddr*, socklen_t*, );
+    int getnetent_r(struct_netent*, char*, int, struct_netent**, int*, );
+
+
+
+
+    struct struct_sockaddr_in
+    {
+        sa_family_t sin_family;
+        in_port_t sin_port;
+        struct_in_addr sin_addr;
+        ubyte[8] sin_zero;
+    }
+    void uri_append_userinfo(int*, const(char)*, );
+
+
+    int getnetbyaddr_r(uint32_t, int, struct_netent*, char*, int, struct_netent**, int*, );
+    void uri_append_host_name(int*, const(char)*, );
+
+
+
+
+    int getnetbyname_r(const(char)*, struct_netent*, char*, int, struct_netent**, int*, );
+
+
+    void uri_append_host_ip(int*, const struct_ip_addr*, );
+
+
+    void uri_append_host(int*, const struct_uri_host*, );
+
+
+
+
+    int shutdown(int, int, );
+    void uri_append_port(int*, in_port_t, );
+    struct struct_msghdr
+    {
+        void* msg_name;
+        socklen_t msg_namelen;
+        struct_iovec* msg_iov;
+        int msg_iovlen;
+        void* msg_control;
+        int msg_controllen;
+        int msg_flags;
+    }
+    struct struct_sockaddr_in6
+    {
+        sa_family_t sin6_family;
+        in_port_t sin6_port;
+        uint32_t sin6_flowinfo;
+        struct_in6_addr sin6_addr;
+        uint32_t sin6_scope_id;
+    }
+
+
+
+
+    struct struct_servent
+    {
+        char* s_name;
+        char** s_aliases;
+        int s_port;
+        char* s_proto;
+    }
+    int sockatmark(int, );
+    void uri_append_path_segment(int*, const(char)*, );
+
+
+    int isfdtype(int, int, );
+    struct struct_ip_mreq
+    {
+        struct_in_addr imr_multiaddr;
+        struct_in_addr imr_interface;
+    }
+    void setservent(int, );
+    struct struct_cmsghdr
+    {
+        int cmsg_len;
+        int cmsg_level;
+        int cmsg_type;
+        ubyte[0] __cmsg_data;
+    }
+
+
+    void uri_append_path(int*, const(char)*, );
+    struct struct_ip_mreq_source
+    {
+        struct_in_addr imr_multiaddr;
+        struct_in_addr imr_interface;
+        struct_in_addr imr_sourceaddr;
+    }
+    void endservent();
+
+
+
+    void uri_append_query(int*, const(char)*, );
+    struct_servent* getservent();
+
+
+    struct_servent* getservbyname(const(char)*, const(char)*, );
+    struct struct_ipv6_mreq
+    {
+        struct_in6_addr ipv6mr_multiaddr;
+        uint ipv6mr_interface;
+    }
+    void uri_append_fragment(int*, const(char)*, );
+
+
+
+    struct_servent* getservbyport(int, const(char)*, );
+    struct_cmsghdr* __cmsg_nxthdr(struct_msghdr*, struct_cmsghdr*, );
+
+
+    struct struct_group_req
+    {
+        uint32_t gr_interface;
+        struct_sockaddr_storage gr_group;
+    }
+
+
+    int getservent_r(struct_servent*, char*, int, struct_servent**, );
+
+
+
+
+    struct struct_group_source_req
+    {
+        uint32_t gsr_interface;
+        struct_sockaddr_storage gsr_group;
+        struct_sockaddr_storage gsr_source;
+    }
+    int getservbyname_r(const(char)*, const(char)*, struct_servent*, char*, int, struct_servent**, );
+
+
+
+
+    int getservbyport_r(int, const(char)*, struct_servent*, char*, int, struct_servent**, );
+
+
+
+
+    struct struct_ip_msfilter
+    {
+        struct_in_addr imsf_multiaddr;
+        struct_in_addr imsf_interface;
+        uint32_t imsf_fmode;
+        uint32_t imsf_numsrc;
+        struct_in_addr[1] imsf_slist;
+    }
+    struct struct_protoent
+    {
+        char* p_name;
+        char** p_aliases;
+        int p_proto;
+    }
+    enum _Anonymous_23
+    {
+        SCM_RIGHTS = 1,
+    }
+    enum
+    {
+        SCM_RIGHTS = 1,
+    }
+
+
+
+
+    void setprotoent(int, );
+
+
+
+
+    void endprotoent();
+
+
+
+
+
+    struct struct_group_filter
+    {
+        uint32_t gf_interface;
+        struct_sockaddr_storage gf_group;
+        uint32_t gf_fmode;
+        uint32_t gf_numsrc;
+        struct_sockaddr_storage[1] gf_slist;
+    }
+    struct_protoent* getprotoent();
+
+
+    struct_protoent* getprotobyname(const(char)*, );
+
+
+
+
+
+    struct_protoent* getprotobynumber(int, );
+
+
+
+
+
+
+    int getprotoent_r(struct_protoent*, char*, int, struct_protoent**, );
+    uint32_t ntohl(uint32_t, );
+
+
+    uint16_t ntohs(uint16_t, );
+    int getprotobyname_r(const(char)*, struct_protoent*, char*, int, struct_protoent**, );
+    uint32_t htonl(uint32_t, );
+
+
+    uint16_t htons(uint16_t, );
+
+
+
+
+    int getprotobynumber_r(int, struct_protoent*, char*, int, struct_protoent**, );
+
+
+
+
+    int setnetgrent(const(char)*, );
+
+
+
+
+
+
+    void endnetgrent();
+    int getnetgrent(char**, char**, char**, );
+    int innetgr(const(char)*, const(char)*, const(char)*, const(char)*, );
+
+
+
+
+
+    int getnetgrent_r(char**, char**, char**, char*, int, );
+    struct struct_linger
+    {
+        int l_onoff;
+        int l_linger;
+    }
+    int rcmd(char**, ushort, const(char)*, const(char)*, const(char)*, int*, );
+    int rcmd_af(char**, ushort, const(char)*, const(char)*, const(char)*, int*, sa_family_t, );
+    int rexec(char**, int, const(char)*, const(char)*, const(char)*, int*, );
+
+
+    int rexec_af(char**, int, const(char)*, const(char)*, const(char)*, int*, sa_family_t, );
+
+
+    int bindresvport(int, struct_sockaddr_in*, );
+    int ruserok(const(char)*, int, const(char)*, const(char)*, );
+    int bindresvport6(int, struct_sockaddr_in6*, );
+
+
+
+
+    int ruserok_af(const(char)*, int, const(char)*, const(char)*, sa_family_t, );
+    int iruserok(uint32_t, int, const(char)*, const(char)*, );
+    int iruserok_af(const(void)*, int, const(char)*, const(char)*, sa_family_t, );
+    int rresvport(int*, );
+    int rresvport_af(int*, sa_family_t, );
+    struct struct_addrinfo
+    {
+        int ai_flags;
+        int ai_family;
+        int ai_socktype;
+        int ai_protocol;
+        socklen_t ai_addrlen;
+        struct_sockaddr* ai_addr;
+        char* ai_canonname;
+        struct_addrinfo* ai_next;
+    }
+    int getaddrinfo(const(char)*, const(char)*, const struct_addrinfo*, struct_addrinfo**, );
+    void freeaddrinfo(struct_addrinfo*, );
+    const(char)* gai_strerror(int, );
+    int getnameinfo(const struct_sockaddr*, socklen_t, char*, socklen_t, char*, socklen_t, int, );
 }

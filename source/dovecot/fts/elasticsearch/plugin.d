@@ -2,8 +2,6 @@ module dovecot.fts.elasticsearch.plugin;
 /* Copyright (c) 2006-2012 Dovecot authors, see the included COPYING file */
 /* Copyright (c) 2014 Joshua Atkins <josh@ascendantcom.com> */
 
-#include "module-context.h"
-#include "fts-api-private.h"
 
 #define FTS_ELASTICSEARCH_USER_CONTEXT(obj) \
     MODULE_CONTEXT(obj, fts_elasticsearch_user_module)
@@ -12,7 +10,7 @@ struct fts_elasticsearch_settings
 {
     bool debug_;         /* whether or not debug is set */
     const(char)* url;    /* base URL to an ElasticSearch instance */
-};
+}
 
 struct fts_elasticsearch_user
 {

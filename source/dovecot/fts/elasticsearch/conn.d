@@ -2,14 +2,8 @@ module dovecot.fts.elasticsearch.conn;
 /* Copyright (c) 2006-2014 Dovecot authors, see the included COPYING file */
 /* Copyright (c) 2014 Joshua Atkins <josh@ascendantcom.com> */
 
-#include <json-c/json.h>
 #include <stdio.h>
-
-#include "ioloop.h"
-#include "istream.h"
 #include "http-url.h"
-#include "http-client.h"
-#include "seq-range-array.h"
 #include "http-client.h"
 #include <json-c/json.h>
 
