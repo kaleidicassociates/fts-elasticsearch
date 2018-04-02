@@ -1,10 +1,17 @@
 module dovecot.fts.elasticsearch.plugin;
+import dovecot.api;
+
 /* Copyright (c) 2006-2012 Dovecot authors, see the included COPYING file */
 /* Copyright (c) 2014 Joshua Atkins <josh@ascendantcom.com> */
 
 
-#define FTS_ELASTICSEARCH_USER_CONTEXT(obj) \
-    MODULE_CONTEXT(obj, fts_elasticsearch_user_module)
+alias mail_user_module_context = struct_mail_user_module_context;
+alias mail_user = struct_mail_user;
+alias mail_storage_hooks = struct_mail_storage_hooks;
+enum DOVECOT_ABI_VERSION = "2.2";
+
+//#define FTS_ELASTICSEARCH_USER_CONTEXT(obj) \
+   // MODULE_CONTEXT(obj, fts_elasticsearch_user_module)
 
 struct fts_elasticsearch_settings
 {
@@ -14,29 +21,27 @@ struct fts_elasticsearch_settings
 
 struct fts_elasticsearch_user
 {
-    union mail_user_module_context module_ctx;  /* mail user context */
+    mail_user_module_context module_ctx;  /* mail user context */
     fts_elasticsearch_settings set;      /* laoded settings */
 }
 
-extern const(char)* fts_elasticsearch_plugin_dependencies[];
-extern struct fts_backend fts_backend_elasticsearch;
-extern MODULE_CONTEXT_DEFINE(fts_elasticsearch_user_module, &mail_user_module_register);
+extern const(char)*[] fts_elasticsearch_plugin_dependencies;
+extern struct_fts_backend fts_backend_elasticsearch;
+//extern MODULE_CONTEXT_DEFINE(fts_elasticsearch_user_module, &mail_user_module_register);
 
 
-#include "lib.h"
-#include "array.h"
-#include "mail-user.h"
-#include "mail-storage-hooks.h"
-
-#include <stdlib.h>
+//#include "lib.h"
+//#include "array.h"
+//#include <stdlib.h>
 
 const(char)* fts_elasticsearch_plugin_version = DOVECOT_ABI_VERSION;
 
-struct fts_elasticsearch_user_module fts_elasticsearch_user_module = MODULE_CONTEXT_INIT(&mail_user_module_register);
+//fts_elasticsearch_user_module fts_elasticsearch_user_module = MODULE_CONTEXT_INIT(&mail_user_module_register);
+void* fts_elasticsearch_user_module;
 
 int fts_elasticsearch_plugin_init_settings(mail_user *user, fts_elasticsearch_settings *set, const(char)* str)
 {
-    const(char)* const *tmp;
+    const(char)* * tmp;
 
     /* validate our parameters */
     if (user is null || set is null) {
@@ -50,9 +55,9 @@ int fts_elasticsearch_plugin_init_settings(mail_user *user, fts_elasticsearch_se
 
     for (tmp = t_strsplit_spaces(str, " "); *tmp !is null; tmp++) {
         if (strncmp(*tmp, "url=", 4) == 0) {
-            set->url = p_strdup(user->pool, *tmp + 4);
+            set.url = p_strdup(user.pool, *tmp + 4);
         } else if (strcmp(*tmp, "debug") == 0) {
-            set->debug = TRUE;
+            set.debug_ = TRUE;
         } else {
             i_error("fts_elasticsearch: Invalid setting: %s", *tmp);
             return -1;
@@ -70,8 +75,8 @@ void fts_elasticsearch_mail_user_create(mail_user *user, const(char)* env)
     if (user is null || env is null) {
         i_error("fts_elasticsearch: critical error during mail user creation");
     } else {
-        fuser = p_new(user->pool, struct fts_elasticsearch_user, 1);
-        if (fts_elasticsearch_plugin_init_settings(user, &fuser->set, env) < 0) {
+        fuser = p_new(user.pool, fts_elasticsearch_user, 1);
+        if (fts_elasticsearch_plugin_init_settings(user, &fuser.set, env) < 0) {
             /* invalid settings, disabling */
             return;
         }
@@ -96,8 +101,12 @@ void fts_elasticsearch_mail_user_created(mail_user *user)
     }
 }
 
-struct mail_storage_hooks fts_elasticsearch_mail_storage_hooks = {.mail_user_created = fts_elasticsearch_mail_user_created};
-};
+__gshared mail_storage_hooks fts_elasticsearch_mail_storage_hooks;
+ shared static this()
+{
+    fts_elasticsearch_mail_storage_hooks.mail_user_created = fts_elasticsearch_mail_user_created;
+}
+
 
 void fts_elasticsearch_plugin_init(Module *module_)
 {
@@ -111,4 +120,4 @@ void fts_elasticsearch_plugin_deinit()
     mail_storage_hooks_remove(&fts_elasticsearch_mail_storage_hooks);
 }
 
-const(char)* fts_elasticsearch_plugin_dependencies[] = [ "fts", null ];
+//const(char)*[] fts_elasticsearch_plugin_dependencies = [ "fts", null ];
