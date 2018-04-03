@@ -3,188 +3,13 @@ import dovecot.api;
 import asdf;
 import dovecot.fts.elasticsearch.plugin;
 import dovecot.fts.elasticsearch.conn;
+import dovecot.fts.elasticsearch.util;
+import dovecot.fts.elasticsearch.json;
+import dovecot.fts.elasticsearch.wrap;
 
 enum MAILBOX_GUID_HEX_LENGTH = 1024;
 enum ELASTICSEARCH_BULK_SIZE = 5_000_000; // 5MiB
 
-alias fts_backend=struct_fts_backend;
-alias mailbox = struct_mailbox;
-alias fts_backend_update_context = struct_fts_backend_update_context;
-alias fts_result = FTSResult;
-alias fts_backend_build_key = struct_fts_backend_build_key;
-alias fts_lookup_flags = FTSLookupFlag;
-
-
-private string replace(string s, string replaceChars)
-{
-    string ret;
-    foreach(c;s)
-    {
-        ret ~= (canFind(replaceChars,c)) ? "_" : c;
-    }
-
-    return ret;
-}
-
-private string escape(string s, string escapeChars)
-{
-    string ret;
-    uint i;
-
-    foreach(c;s)
-    {
-        if (escapeChars.canFind(c))
-            ret~='\\';
-
-        switch(c)
-        {
-            case '\t': ret ~= "\\t"; break;
-            case '\b': ret ~= "\\b"; break;
-            case '\n': ret~="\\n"; break;
-            case '\r': ret~="\\r"; break;
-            case '\f': ret~="\\f"; break;
-            case 0x1C: ret~="0x1c"; break;
-            case 0x1D: ret~="0x1d"; break;
-            case 0x1E: ret~="0x1e"; break;
-            case 0x1F: ret ~="0x1f"; break;
-            default: ret~=c; break;
-        }
-    }
-
-    return ret;
-}
-
-string updateEscape(string s)
-{
-    return escape(s, es_update_escape_chars);
-}
-
-string queryEscape(string s)
-{
-    return escape(s, es_query_escape_chars);
-}
-
-extern(C) fts_backend *fts_backend_elasticsearch_alloc()
-{
-    Backend *backend;
-
-    backend = cast(Backend*)i_new(backend, 1);
-    backend.backend = fts_backend_elasticsearch;
-
-    return &backend.backend;
-}
-
-
-/*
-union union_array__keywords
-{
-    struct_array arr;
-    const(const(const(char)*)*)* v;
-    const(char)*** v_modifiable;
-}
-
-struct struct_array
-{
-    int* buffer;
-    int element_size;
-}
-*/
-struct MailboxStatus
-{
-    uint messages;
-    uint recent;
-    uint unseen;
-    uint uidValidity;
-    uint uidNext;
-    uint firstUnseenSeq;
-    uint firstRecentUID;
-    uint last_cached_seq;
-    ulong highest_modseq;
-    ulong highest_pvt_modseq;
-    string[] keywords;
-    MailFlags permanentFlags;
-    MailFlags flags;
-    int permanentKeywords;
-    int allow_newkeywords;
-    int nonpermanent_modseqs;
-    int no_modseq_tracking;
-    int have_guids;
-    int have_save_guids;
-    int have_only_guid128;
-
-    this(struct_mailbox_status status)
-    {
-        this.messages = status.messages;
-        this.recent = status.recent;
-        this.unseen = status.unseen;
-        this.uidValidity = status.uidValidity;
-        this.uidNext = status.uidNext;
-        this.firstUnseenSeq = status.firstUnseenSeq;
-        this.firstRecentUID = status.firstRecentUID;
-        this.lastCachedSeq = status.last_cached_seq;
-        this.highestModSeq = status.highest_mod_seq;
-        this.highestPrivateModSeq = status.highest_pvt_modseq;
-        this.keywords = status.keywords.toArray;
-        this.permanentFlags = status.permanent_flags;
-    }
-}
-
-auto getOpenStatus(ref Mailbox mailbox, MailboxStatusItems items)
-{
-    struct_mailbox_status ret;
-    mailbox_get_open_status(mailbox.handle,items, &ret);
-    return MailboxStatus(ret);
-}
-
-
-
-/* values that must be escaped in query fields */
-enum es_query_escape_chars = `"\`;
-
-/* values that must be escaped in a bulk update value field */
-enum es_update_escape_chars = `"\`;
-
-/* values that must be escaped in field names */
-enum es_field_escape_chars = `.#*"`;
-
-/* the search JSON */
-__gshared auto JSON_SEARCH = 
-    `{ 
-        "query": { 
-            "multi_match": {
-                "query": "%s",
-                "operator": "%s", 
-                "fields": [ %s ]
-            }
-        },
-        "fields": [ "uid", "box" ],
-        "size": %lu
-    }`;
-
-/* the last_uid lookup json */
-__gshared auto JSON_LAST_UID =
-    `{ 
-      "sort": { 
-        "uid": "desc"
-      },
-      "query": {
-        "match_all": { }
-      },
-      "fields": [
-        "uid"
-      ],
-      "size": 1
-    }`;
-
-/* bulk index header */
-__gshared auto JSON_BULK_HEADER =
-    `{ 
-      "%s": {
-        "_index": "%s",
-        "_type": "%s",
-        "_id\": %d
-      }
-    }`;
 
 struct Backend
 {
@@ -387,13 +212,6 @@ int deinit(ref Context context)
 }
 
 
-
-auto getGUID(Mailbox mailbox)
-{
-    char[1024] ret;
-    enforce(fts_mailbox_get_guid(mailbox.handle,ret.ptr)>0,"fts-elasticsearch: getGUID failed");
-    return ret.idup;
-}
 
 
 void updateField(ref Context context, string field, string value)

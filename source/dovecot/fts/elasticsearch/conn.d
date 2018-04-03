@@ -284,7 +284,7 @@ struct Connection
         return this.context.results;
     }
 
-    auto payload_input()
+    auto payloadInput()
     {
         const(ubyte)* data =  null;
         size_t size;
@@ -345,7 +345,7 @@ struct Connection
         return 0;
     }
 
-    auto selectJSON(string key, json_object* val)
+    auto selectJSON(Asdf val, string key)
     {
         json_object *jvalue;
         elasticsearch_result *result =  null;
@@ -388,7 +388,7 @@ struct Connection
         }
     }
 
-    auto jsonParseArray(json_object *jobj, char *key)
+    auto jsonParseArray(Asdf jobj, string key)
     {
         //json_type type;
         json_object* jvalue =  null;
@@ -400,10 +400,7 @@ struct Connection
         jarray = jobj; 
 
         if (key) {
-            static if( JSON_HAS_GET_EX)
                 json_object_object_get_ex(jobj, key, &jarray);
-            else
-                {} // jarray = json_object_object_get(jobj, key);
         }
 
         arraylen = json_object_array_length(jarray);
@@ -427,21 +424,16 @@ struct Connection
 
     auto getResult(string boxID)
     {
-        elasticsearch_result *result =  null;
-        char *box_id_dup =  null;
+        Result result;
 
-        /* check if the mailbox is cached first */ 
-        result = hash_table_lookup(conn.ctx.mailboxes, box_id);
+        // check if the mailbox is cached first */ 
+        auto result = boxID in this.context.mailboxes;
+        if (result !is null)
+            return *result;
 
-        if (result !is  null) {
-            return result;
-        } else {
-            /* mailbox is not cached, we have to query it and then cache it */
-        }
-
-        box_id_dup = p_strdup(conn.ctx.result_pool, box_id);
+        // mailbox is not cached, we have to query it and then cache it
         result = p_new(conn.ctx.result_pool, elasticsearch_result, 1);
-        result.box_id = box_id_dup;
+        result.boxID = boxID;
 
         p_array_init(&result.uids, conn.ctx.result_pool, 32);
         p_array_init(&result.scores, conn.ctx.result_pool, 32);
@@ -450,13 +442,12 @@ struct Connection
         return result;
     }
 
-    void jsonParse(json_object *jobj)
+    void jsonParse(Asdf jobj)
     {
         //json_type type;
         json_object *temp =  null;
-
         
-        json_object_object_foreach(jobj, key, val) {
+        foreach(entry;json_object_object_foreach(jobj, key, val) {
             /* reinitialise to temp each iteration */
             temp =  null;
 
@@ -499,7 +490,7 @@ struct Connection
     } 
 
 
-    auto lastUIDJson(string key, json_object* val)
+    auto lastUIDJson(string key, Asdf val)
     {
         json_object *jvalue =  null;
 
