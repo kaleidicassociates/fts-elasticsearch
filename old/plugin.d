@@ -13,18 +13,17 @@ enum DOVECOT_ABI_VERSION = "2.2";
 //#define FTS_ELASTICSEARCH_USER_CONTEXT(obj) \
    // MODULE_CONTEXT(obj, fts_elasticsearch_user_module)
 
-struct Settings
+struct fts_elasticsearch_settings
 {
-    bool isDebug;
-    string url;
+    bool debug_;         /* whether or not debug is set */
+    const(char)* url;    /* base URL to an ElasticSearch instance */
 }
 
-struct User
+struct fts_elasticsearch_user
 {
     mail_user_module_context module_ctx;  /* mail user context */
     fts_elasticsearch_settings set;      /* laoded settings */
 }
-
 
 extern const(char)*[] fts_elasticsearch_plugin_dependencies;
 __gshared extern(C) struct_fts_backend fts_backend_elasticsearch;
@@ -40,7 +39,7 @@ const(char)* fts_elasticsearch_plugin_version = DOVECOT_ABI_VERSION;
 //fts_elasticsearch_user_module fts_elasticsearch_user_module = MODULE_CONTEXT_INIT(&mail_user_module_register);
 void* fts_elasticsearch_user_module;
 
-extern(C) int fts_elasticsearch_plugin_init_settings(mail_user *user, fts_elasticsearch_settings *set, const(char)* str)
+int fts_elasticsearch_plugin_init_settings(mail_user *user, fts_elasticsearch_settings *set, const(char)* str)
 {
     const(char)* * tmp;
 
@@ -50,23 +49,19 @@ extern(C) int fts_elasticsearch_plugin_init_settings(mail_user *user, fts_elasti
         return -1;
     }
 
-    string s = (str is null)? "" : s.fromStringz;
-    foreach(col;s.split(' '))
-    {
-        if (col.startsWith("url="))
-        {
-            set.url = col[4..$];
-        }
-        else if (col.startsWith("debug"))
-        {
-            set.debug_=true;
-        }
-        else
-        {
-            i_error("fts_elasticsearch: Invalid setting: %s",col.toStringz);
+    if (str is null) {
+        str = "";
+    }
+
+    for (tmp = t_strsplit_spaces(str, " "); *tmp !is null; tmp++) {
+        if (strncmp(*tmp, "url=", 4) == 0) {
+            //set.url = p_strdup(user.pool, *tmp + 4);
+        } else if (strcmp(*tmp, "debug") == 0) {
+            set.debug_ = true;
+        } else {
+            i_error("fts_elasticsearch: Invalid setting: %s", *tmp);
             return -1;
         }
-
     }
 
     return 0;
@@ -80,13 +75,13 @@ void fts_elasticsearch_mail_user_create(mail_user *user, const(char)* env)
     if (user is null || env is null) {
         i_error("fts_elasticsearch: critical error during mail user creation");
     } else {
-        fuser = p_new(user.pool, fts_elasticsearch_user, 1);
+        //fuser = p_new(user.pool, fts_elasticsearch_user, 1);
         if (fts_elasticsearch_plugin_init_settings(user, &fuser.set, env) < 0) {
             /* invalid settings, disabling */
             return;
         }
 
-        MODULE_CONTEXT_SET(user, fts_elasticsearch_user_module, fuser);
+        //MODULE_CONTEXT_SET(user, fts_elasticsearch_user_module, fuser);
     }
 }
 

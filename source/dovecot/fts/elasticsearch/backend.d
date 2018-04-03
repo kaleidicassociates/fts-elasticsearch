@@ -1,14 +1,11 @@
 module dovecot.fts.elasticsearch.backend;
 import dovecot.api;
-
-// #include "http-client.h"
-// #include <json-c/json.h>
-
+import asdf;
 import dovecot.fts.elasticsearch.plugin;
 import dovecot.fts.elasticsearch.conn;
 
 enum MAILBOX_GUID_HEX_LENGTH = 1024;
-enum ELASTICSEARCH_BULK_SIZE = 1000;
+enum ELASTICSEARCH_BULK_SIZE = 5_000_000; // 5MiB
 
 alias fts_backend=struct_fts_backend;
 alias mailbox = struct_mailbox;
@@ -17,17 +14,138 @@ alias fts_result = FTSResult;
 alias fts_backend_build_key = struct_fts_backend_build_key;
 alias fts_lookup_flags = FTSLookupFlag;
 
-/* default bulk index size of 5MB */
- //#define ELASTICSEARCH_BULK_SIZE 5000000
+
+private string replace(string s, string replaceChars)
+{
+    string ret;
+    foreach(c;s)
+    {
+        ret ~= (canFind(replaceChars,c)) ? "_" : c;
+    }
+
+    return ret;
+}
+
+private string escape(string s, string escapeChars)
+{
+    string ret;
+    uint i;
+
+    foreach(c;s)
+    {
+        if (escapeChars.canFind(c))
+            ret~='\\';
+
+        switch(c)
+        {
+            case '\t': ret ~= "\\t"; break;
+            case '\b': ret ~= "\\b"; break;
+            case '\n': ret~="\\n"; break;
+            case '\r': ret~="\\r"; break;
+            case '\f': ret~="\\f"; break;
+            case 0x1C: ret~="0x1c"; break;
+            case 0x1D: ret~="0x1d"; break;
+            case 0x1E: ret~="0x1e"; break;
+            case 0x1F: ret ~="0x1f"; break;
+            default: ret~=c; break;
+        }
+    }
+
+    return ret;
+}
+
+string updateEscape(string s)
+{
+    return escape(s, es_update_escape_chars);
+}
+
+string queryEscape(string s)
+{
+    return escape(s, es_query_escape_chars);
+}
+
+extern(C) fts_backend *fts_backend_elasticsearch_alloc()
+{
+    Backend *backend;
+
+    backend = cast(Backend*)i_new(backend, 1);
+    backend.backend = fts_backend_elasticsearch;
+
+    return &backend.backend;
+}
+
+
+/*
+union union_array__keywords
+{
+    struct_array arr;
+    const(const(const(char)*)*)* v;
+    const(char)*** v_modifiable;
+}
+
+struct struct_array
+{
+    int* buffer;
+    int element_size;
+}
+*/
+struct MailboxStatus
+{
+    uint messages;
+    uint recent;
+    uint unseen;
+    uint uidValidity;
+    uint uidNext;
+    uint firstUnseenSeq;
+    uint firstRecentUID;
+    uint last_cached_seq;
+    ulong highest_modseq;
+    ulong highest_pvt_modseq;
+    string[] keywords;
+    MailFlags permanentFlags;
+    MailFlags flags;
+    int permanentKeywords;
+    int allow_newkeywords;
+    int nonpermanent_modseqs;
+    int no_modseq_tracking;
+    int have_guids;
+    int have_save_guids;
+    int have_only_guid128;
+
+    this(struct_mailbox_status status)
+    {
+        this.messages = status.messages;
+        this.recent = status.recent;
+        this.unseen = status.unseen;
+        this.uidValidity = status.uidValidity;
+        this.uidNext = status.uidNext;
+        this.firstUnseenSeq = status.firstUnseenSeq;
+        this.firstRecentUID = status.firstRecentUID;
+        this.lastCachedSeq = status.last_cached_seq;
+        this.highestModSeq = status.highest_mod_seq;
+        this.highestPrivateModSeq = status.highest_pvt_modseq;
+        this.keywords = status.keywords.toArray;
+        this.permanentFlags = status.permanent_flags;
+    }
+}
+
+auto getOpenStatus(ref Mailbox mailbox, MailboxStatusItems items)
+{
+    struct_mailbox_status ret;
+    mailbox_get_open_status(mailbox.handle,items, &ret);
+    return MailboxStatus(ret);
+}
+
+
 
 /* values that must be escaped in query fields */
-static const(char)* es_query_escape_chars = `"\`;
+enum es_query_escape_chars = `"\`;
 
 /* values that must be escaped in a bulk update value field */
-static const(char)* es_update_escape_chars = `"\`;
+enum es_update_escape_chars = `"\`;
 
 /* values that must be escaped in field names */
-static const(char)* es_field_escape_chars = `.#*"`;
+enum es_field_escape_chars = `.#*"`;
 
 /* the search JSON */
 __gshared auto JSON_SEARCH = 
@@ -68,418 +186,282 @@ __gshared auto JSON_BULK_HEADER =
       }
     }`;
 
-struct elasticsearch_fts_backend
+struct Backend
 {
     fts_backend backend;
     elasticsearch_connection *elasticsearch_conn;
-}
 
-struct elasticsearch_fts_backend_update_context
-{
-    import std.bitmanip;
-    fts_backend_update_context ctx;
+    this(fts_backend *_backend, const(char)** error_r)
+    {
+        Backend *backend = null;
+        fts_elasticsearch_user *fuser = null;
 
-    mailbox* prev_box;
-    char[MAILBOX_GUID_HEX_LENGTH + 1] box_guid;
-    
-    uint prev_uid;
+        /* ensure our backend is provided */
+        if (_backend !is null) {
+            backend = cast(Backend*)_backend;
+        } else {
+            *error_r = "fts_elasticsearch: error during backend initilisation";
 
-    /* used to build multi-part messages. */
-    string_t *temp_body;
-    string_t *current_field;
-
-    /* build a json string for bulk indexing */
-    string_t *json_request;
-
-    /* temporary storage for various operations */
-    string_t *temp;
-
-    /* current request size */
-    size_t request_size;
-
-    mixin(bitfields!(
-        uint,"body_open",1,
-        uint,"documents_added",1,
-        uint,"expunges",1,
-        uint,"junk",5
-    ));
-}
-
-static const(char)* es_replace(const(char)* str, const(char)* replace)
-{
-    string_t *ret;
-    uint i;
-
-    ret = t_str_new(strlen(str) + 16);
-
-    for (i = 0; str[i] != '\0'; i++) {
-        if (strchr(replace, str[i]) !is null)
-            str_append_c(ret, '_');
-        else
-            str_append_c(ret, str[i]);
-    }
-
-    return str_c(ret);
-}
-
-static const(char)* es_escape(const(char)* str, const(char)* escape)
-{
-    string_t *ret;
-    uint i;
-
-    ret = t_str_new(strlen(str) + 16);
-
-    for (i = 0; str[i] != '\0'; i++) {
-        if (strchr(escape, str[i]) !is null)
-            str_append_c(ret, '\\');
-
-        /* escape control characters that JSON isn't a fan of */
-        switch(str[i])
-        {
-            case '\t': str_append(ret, "\\t"); break;
-            case '\b': str_append(ret, "\\b"); break;
-            case '\n': str_append(ret, "\\n"); break;
-            case '\r': str_append(ret, "\\r"); break;
-            case '\f': str_append(ret, "\\f"); break;
-            case 0x1C: str_append(ret, "0x1C"); break;
-            case 0x1D: str_append(ret, "0x1D"); break;
-            case 0x1E: str_append(ret, "0x1E"); break;
-            case 0x1F: str_append(ret, "0x1F"); break;
-            default: str_append_c(ret, str[i]); break;
+            return -1;
         }
+        
+        //fuser = FTS_ELASTICSEARCH_USER_CONTEXT(_backend.ns.user);
+
+        if (fuser is null) {
+            *error_r = "Invalid fts_elasticsearch setting";
+
+            return -1;
+        }
+
+        return elasticsearch_connection_init(fuser.set.url, fuser.set.debug_, &backend.elasticsearch_conn, error_r);
     }
 
-    return str_c(ret);
-}
-
-const(char)* es_update_escape(const(char)* str)
-{
-    return es_escape(str, es_update_escape_chars);
-}
-
-const(char)* es_query_escape(const(char)* str)
-{
-    return es_escape(str, es_query_escape_chars);
-}
-
-extern(C) fts_backend *fts_backend_elasticsearch_alloc()
-{
-    elasticsearch_fts_backend *backend;
-
-    backend = cast(elasticsearch_fts_backend*)i_new(backend, 1);
-    backend.backend = fts_backend_elasticsearch;
-
-    return &backend.backend;
-}
-
-extern(C) int fts_backend_elasticsearch_init(fts_backend *_backend, const(char)** error_r)
-{
-    elasticsearch_fts_backend *backend = null;
-    fts_elasticsearch_user *fuser = null;
-
-    /* ensure our backend is provided */
-    if (_backend !is null) {
-        backend = cast(elasticsearch_fts_backend*)_backend;
-    } else {
-        *error_r = "fts_elasticsearch: error during backend initilisation";
-
-        return -1;
+    ~this()
+    {
+        i_free(_backend);
     }
     
-    //fuser = FTS_ELASTICSEARCH_USER_CONTEXT(_backend.ns.user);
+    auto getLastUID(ref Mailbox box, int* last_uid_r)
+    {
+        struct_fts_index_header hdr;
+        Backend backend;
+        int ret;
 
-    if (fuser is null) {
-        *error_r = "Invalid fts_elasticsearch setting";
+        /* ensure our backend has been initialised */
+        if (_backend is null || box is null || last_uid_r is null) {
+            i_error("fts_elasticsearch: critical error in get_last_uid".ptr);
 
-        return -1;
-    }
-
-    return elasticsearch_connection_init(fuser.set.url, fuser.set.debug_, &backend.elasticsearch_conn, error_r);
-}
-
-extern(C) void fts_backend_elasticsearch_deinit(fts_backend *_backend)
-{
-    i_free(_backend);
-}
-
-extern(C) void fts_backend_elasticsearch_bulk_end(elasticsearch_fts_backend_update_context *_ctx)
-{
-    elasticsearch_fts_backend_update_context *ctx = null;
-
-    /* ensure we have a context */
-    if (_ctx !is null) {
-        ctx = cast (elasticsearch_fts_backend_update_context *)_ctx;
-
-        /* close up this line in the bulk request */
-        str_append(ctx.json_request, "}\n");
-
-        /* clean-up for the next message */
-        str_truncate(ctx.temp_body, 0);
-        str_truncate(ctx.current_field, 0);
-
-        if (ctx.body_open) {
-            ctx.body_open = false;
+            return -1;
+        } else {
+            /* keep track of our backend */
+            backend = cast(Backend *)_backend;
         }
-    }
-}
 
-extern(C) int fts_backend_elasticsearch_get_last_uid(fts_backend*_backend, mailbox* box, int* last_uid_r)
-{
-    struct_fts_index_header hdr;
-    elasticsearch_fts_backend *backend = null;
-    const(char)* box_guid = null;
-    int ret;
+        /**
+         * assume the dovecot index will always match ours for uids. this saves
+         * on repeated calls to ES, particularly noticable when fts_autoindex=true.
+         *
+         * this has a couple of side effects:
+         *  1. if the ES index has been blown away, this will return a valid
+         *     last_uid that matches Dovecot and it won't realise we need updating
+         *  2. if data has been indexed by Dovecot but missed by ES (outage, etc)
+         *     then it won't ever make it to the ES index either.
+         *
+         * TODO: find a better way to implement this
+         **/
+        if (fts_index_get_header(box, &hdr)) {
+            *last_uid_r = hdr.last_indexed_uid;
 
-    /* ensure our backend has been initialised */
-    if (_backend is null || box is null || last_uid_r is null) {
-        i_error("fts_elasticsearch: critical error in get_last_uid".ptr);
+            return 0;
+        } 
 
-        return -1;
-    } else {
-        /* keep track of our backend */
-        backend = cast(elasticsearch_fts_backend *)_backend;
-    }
+        auto boxGUID = getGUID(mailbox);
+        /* call ES */
+        ret = lastUID(backend.connection, JSON_LAST_UID.ptr, boxGUID);
 
-    /**
-     * assume the dovecot index will always match ours for uids. this saves
-     * on repeated calls to ES, particularly noticable when fts_autoindex=true.
-     *
-     * this has a couple of side effects:
-     *  1. if the ES index has been blown away, this will return a valid
-     *     last_uid that matches Dovecot and it won't realise we need updating
-     *  2. if data has been indexed by Dovecot but missed by ES (outage, etc)
-     *     then it won't ever make it to the ES index either.
-     *
-     * TODO: find a better way to implement this
-     **/
-    if (fts_index_get_header(box, &hdr)) {
-        *last_uid_r = hdr.last_indexed_uid;
+        if (ret > 0) {
+            *last_uid_r = ret;
 
-        return 0;
-    } 
+            //fts_index_set_last_uid(box, *last_uid_r);
 
-    if (fts_mailbox_get_guid(box, &box_guid) < 0) {
-        i_error("fts-elasticsearch: get_last_uid: failed to get mbox guid".ptr);
-
-        return -1;
-    }
-
-    /* call ES */
-    ret = elasticsearch_connection_last_uid(backend.elasticsearch_conn, JSON_LAST_UID.ptr, box_guid);
-
-    if (ret > 0) {
-        *last_uid_r = ret;
+            return 0;
+        }
+        
+        *last_uid_r = 0;
 
         //fts_index_set_last_uid(box, *last_uid_r);
 
         return 0;
     }
-    
-    *last_uid_r = 0;
 
-    //fts_index_set_last_uid(box, *last_uid_r);
+    auto updateInit(fts_backend *_backend)
+    {
+        Context ctx;
+        ctx = cast(Context*) i_new(ctx, 1);
+        ctx.ctx.backend = _backend;
 
-    return 0;
-}
-
-auto i_new(T)(T* t, int num)
-{
-    return calloc(T.sizeof,num);
-}
-
-auto i_free(T)(T* t)
-{
-    free(t);
-}
-
-extern(C) fts_backend_update_context* fts_backend_elasticsearch_update_init(fts_backend *_backend)
-{
-    elasticsearch_fts_backend_update_context* ctx;
-    ctx = cast(elasticsearch_fts_backend_update_context*) i_new(ctx, 1);
-    ctx.ctx.backend = _backend;
-
-    /* allocate strings for building messages and multi-part messages
-     * with a sensible initial size. */
-    //ctx.current_field = str_new(default_pool, 1024);
-    //ctx.temp_body = str_new(default_pool, 1024 * 64);
-    //ctx.temp = str_new(default_pool, 1024 * 64);
-    //ctx.json_request = str_new(default_pool, 1024 * 64);
-    ctx.current_field = str_new( 1024);
-    ctx.temp_body = str_new( 1024 * 64);
-    ctx.temp = str_new( 1024 * 64);
-    ctx.json_request = str_new( 1024 * 64);
-    ctx.request_size = 0;
-
-    return &ctx.ctx;
-}
-
-extern(C) int fts_backend_elasticsearch_update_deinit(fts_backend_update_context* _ctx)
-{
-    elasticsearch_fts_backend_update_context *ctx = null;
-    elasticsearch_fts_backend *backend = null;
-
-    /* validate our input parameters */
-    if (_ctx is null || _ctx.backend is null) {
-        i_error("fts_elasticsearch: critical error in update_deinit");
-
-        return -1;
-    } else {
-        ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-        backend = cast(elasticsearch_fts_backend *)_ctx.backend;
-    }
-
-    /* clean-up: expunges don't need as much clean-up */
-    if (!ctx.expunges) {
-        /* this gets called when the last message is finished, so close it up */
-        fts_backend_elasticsearch_bulk_end(ctx);
-
-        /* cleanup */
-        memset(ctx.box_guid.ptr, 0, ctx.box_guid.sizeof);
-        str_free(&ctx.current_field);
-        str_free(&ctx.temp_body);
-        str_free(&ctx.temp);
+        /* allocate strings for building messages and multi-part messages
+         * with a sensible initial size. */
+        //ctx.current_field = str_new(default_pool, 1024);
+        //ctx.temp_body = str_new(default_pool, 1024 * 64);
+        //ctx.temp = str_new(default_pool, 1024 * 64);
+        //ctx.json_request = str_new(default_pool, 1024 * 64);
+        ctx.current_field = str_new( 1024);
+        ctx.temp_body = str_new( 1024 * 64);
+        ctx.temp = str_new( 1024 * 64);
+        ctx.json_request = str_new( 1024 * 64);
         ctx.request_size = 0;
+
+        return &ctx.ctx;
     }
 
-    /* perform the actual post */
-    elasticsearch_connection_update(backend.elasticsearch_conn,
-                                    str_c(ctx.json_request));
-
-    /* global clean-up */
-    str_free(&ctx.json_request); 
-    i_free(ctx);
-    
-    return 0;
 }
 
-void i_assert(bool condition)
+struct Context
 {
-    import std.exception:enforce;
-    enforce(condition);
+    import std.bitmanip;
+    fts_backend_update_context ctx;
+    mailbox* prev_box;
+    string boxGUID;
+    uint prev_uid;
+
+    string tempBody;
+    string currentField;
+    string jsonRequest;
+    string temp;
+    bool bodyOpen;
+    bool documentsAdded;
+    bool expunges;
 }
-extern(C) void fts_backend_elasticsearch_update_set_mailbox(fts_backend_update_context *_ctx, mailbox *box)
+
+void setMailbox(ref Context context, Mailbox mailbox, bool isIndexingComplete = false)
 {
-    elasticsearch_fts_backend_update_context *ctx = null;
-    const(char)* box_guid = null;
-
-    if (_ctx !is null) {
-        ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-
+    try
+    {
         /* update_set_mailbox has been called but the previous uid is not 0;
          * clean up from our previous mailbox indexing. */
-        if (ctx.prev_uid != 0) {
-            //fts_index_set_last_uid(ctx.prev_box, ctx.prev_uid);
-
-            ctx.prev_uid = 0;
+        if (context.previousUID != 0) {
+            setLastUID(context.previousMailbox, context.previousUID);
+            context.previousUIDs = 0;
         }
 
-        if (box !is null) {
-            if (fts_mailbox_get_guid(box, &box_guid) < 0) {
-                i_debug("fts-elasticsearch: update_set_mailbox: fts_mailbox_get_guid failed");
+        context.boxGUID =   (!isIndexingComplete) ? getGUID(mailbox) : "";
+    }
+    catch(Exception e)
+    {
+        i_debug("fts-elasticsearch: update_set_mailbox: " ~ e.to!string);
+        context.failed = true;
+    }
 
-                _ctx.failed = true;
-            }
+    context.previousMailbox = mailbox;
+}
 
-            /* store the current mailbox we're on in our state struct */
-            i_assert(strlen(box_guid) == ctx.box_guid.sizeof - 1);
-            memcpy(ctx.box_guid.ptr, box_guid, ctx.box_guid.sizeof - 1);
-        } else {
-            /* a box of null appears to indicate that indexing is complete. */
-            memset(ctx.box_guid.ptr, 0, ctx.box_guid.sizeof);
-        }
-
-        ctx.prev_box = box;
-    } else {
+ else {
         i_error("fts_elasticsearch: update_set_mailbox: context was null");
 
         return;
     }
 }
 
-extern(C) void elasticsearch_add_update_field(string_t *temp, string_t *message, string_t *field, string_t *value)
-{
-    str_truncate(temp, 0);
 
-/*    str_printfa(temp,
-                ", \"%s\": \"%s\"",
-                es_replace(str_c(field), es_field_escape_chars),
-                es_update_escape(str_c(value)));
-*/
-    str_append_str(message, temp);
+void bulkEnd(ref Context context)
+{
+    /* close up this line in the bulk request */
+    context.jsonRequest~= "}\n";
+
+    /* clean-up for the next message */
+    context.tempBody.length = 0;
+    context.currentField.length = 0;
+
+    if (context.bodyOpen)
+        context.bodyOpen = false;
+    }
 }
 
-extern(C) void fts_backend_elasticsearch_bulk_start(elasticsearch_fts_backend_update_context *_ctx, uint uid, string_t *json_request,
-                                   const(char)* action_name)
+int deinit(ref Context context)
 {
-    elasticsearch_fts_backend_update_context *ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-    //string_t *temp = str_new(default_pool, 1024);
-    string_t *temp = str_new(1024);
+    /* validate our input parameters */
+    if (_ctx is null || _ctx.backend is null) {
+        i_error("fts_elasticsearch: critical error in update_deinit");
 
-    /* track that we've added documents */
-    ctx.documents_added = true;
-
-    /* add the header that starts the bulk transaction */
-    //str_printfa(temp, JSON_BULK_HEADER, action_name, ctx.box_guid, "mail", uid);
-    str_append_str(json_request, temp);
-    str_append(json_request, "\n");
-
-    /* expunges don't need anything more than the action line */
-    if (!ctx.expunges) {
-        /* reusing the same temp variable */
-        str_truncate(temp, 0);
-
-        /* add the first two fields; these are static on every message. */
-        //str_printfa(temp, "{ \"uid\": %d, \"box\": \"%s\"", uid, ctx.box_guid);
-        str_append_str(json_request, temp);
+        return -1;
     }
 
-    /* clean-up */
-    str_free(&temp);
+    /* clean-up: expunges don't need as much clean-up */
+    if (!context.expunges) {
+        /* this gets called when the last message is finished, so close it up */
+        fts_backend_elasticsearch_bulk_end(ctx);
+        /* cleanup */
+        context.boxGUID.length = 0;
+        context.currentField.length = 0 ;
+        context.tempBody.length = 0;
+        context.temp.length =0;
+    }
+
+    /* perform the actual post */
+    update(backend.connection, context.jsonRequest);
+    context.jsonRequest.length = 0;
+    /* global clean-up */
+    context.destroy();
+    return 0;
 }
 
-extern(C) void fts_backend_elasticsearch_uid_changed(fts_backend_update_context *_ctx, uint uid)
-{
-    elasticsearch_fts_backend_update_context *ctx = cast(elasticsearch_fts_backend_update_context*) _ctx;
-    //elasticsearch_fts_backend *backend = (*(cast(elasticsearch_fts_backend *)_ctx)).backend;
 
-    if (ctx.documents_added) {
+
+auto getGUID(Mailbox mailbox)
+{
+    char[1024] ret;
+    enforce(fts_mailbox_get_guid(mailbox.handle,ret.ptr)>0,"fts-elasticsearch: getGUID failed");
+    return ret.idup;
+}
+
+
+void updateField(ref Context context, string field, string value)
+{
+    context.jsonRequest ~= format!`, "%s": "%s"`(es_replace(field, es_field_escape_chars),es_update_escape(value));
+}
+
+void bulkStart(ref Context context, uint uid, string jsonRequest, BulkAction bulkAction)
+{
+    // track that we've added documents
+    context.documentsAdded = true;
+
+    // add the header that starts the bulk transaction
+    jsonRequest ~= format!JSON_BULK_HEADER(bulkAction.toString, context.boxGUID, "mail", uid)
+                ~ "\n";
+    /* expunges don't need anything more than the action line */
+    if (!context.expunges)
+    {
+        /* add the first two fields; these are static on every message. */
+        jsonRequest ~= format!`{ "uid": %s, "box": "%s"`(uid, ctx.box_guid);
+    }
+    context.jsonRequest = jsonRequest;
+}
+
+void uidChanged(ref Context context, uint uid)
+{
+    auto backend = context.backend;
+
+    if (context.documentsAdded) {
         /* this is the end of an old message. nb: the last message to be indexed
          * will not reach here but will instead be caught in update_deinit. */
-        fts_backend_elasticsearch_bulk_end(ctx);
+        bulkEnd(context);
     }
 
     /* chunk up our requests in to reasonable sizes */
-    if (ctx.request_size > ELASTICSEARCH_BULK_SIZE) {  
+    if (context.requestSize > ELASTICSEARCH_BULK_SIZE) {  
         /* close the document */
-        fts_backend_elasticsearch_bulk_end(ctx);
+        bulkEnd(context);
 
         /* do an early post */
-        //elasticsearch_connection_update(backend_elasticsearch_conn, str_c(ctx.json_request));
+        update(connection, context.jsonRequest);
 
         /* reset our tracking variables */
-        str_truncate(ctx.json_request, 0);
-        ctx.request_size = 0;
+        context.jsonRequest.length=0;
     }
     
-    ctx.prev_uid = uid;
+    context.previousUID = uid;
     
-    fts_backend_elasticsearch_bulk_start(ctx, uid, ctx.json_request, "index");
+    bulkStart(context, uid, context.jsonRequest, BulkAction.index);
 }
 
-extern(C) int fts_backend_elasticsearch_update_set_build_key(fts_backend_update_context *_ctx, const(fts_backend_build_key)* key)
+enum BulkAction
 {
-    elasticsearch_fts_backend_update_context* ctx = null;
+    index,
+    delete_,
+}
 
-    /* validate our input */
-    if (_ctx is null || key is null) {
-        return false;
-    } else {
-        ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-    }
-
+string toString(BulkAction bulkAction)
+{
+    import std.conv:to;
+    auto ret = bulkAction.to!string;
+    return (ret[$-1]=='_')? ret[0..$-1] : ret;
+}
+auto setBuildKey(ref Context context, BuildKey key)
+{
     /* if the uid doesn't match our expected one, we've moved on to a new message */
-    if (key.uid != ctx.prev_uid) {
-        fts_backend_elasticsearch_uid_changed(_ctx, key.uid);
+    if (key.uid != context.previousUID) {
+        uidChanged(context, key.uid);
     }
 
     switch (key.type) with(FTSBackendBuildKeyType)
@@ -490,9 +472,9 @@ extern(C) int fts_backend_elasticsearch_update_set_build_key(fts_backend_update_
 
             break;
         case bodyPart:
-            if (!ctx.body_open) {
-                ctx.body_open = true;
-                str_append(ctx.current_field, "body");
+            if (!context.bodyOpen) {
+                context.bodyOpen= true;
+                context.currentField~="body";
             }
 
             break;
@@ -504,74 +486,41 @@ extern(C) int fts_backend_elasticsearch_update_set_build_key(fts_backend_update_
     return true;
 }
 
-extern(C) int fts_backend_elasticsearch_update_build_more(fts_backend_update_context* _ctx, const(ubyte)* data, int size)
+void buildMore(ref Context context, ubyte[] data)
 {
-    elasticsearch_fts_backend_update_context *ctx;
-
-    if (_ctx !is null) {
-        ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-
-        /* build more message body */
-        str_append_n(ctx.temp_body, cast(const(void)*)data, cast(int)size);
-
-        /* keep track of the total request size for chunking */
-        ctx.request_size += size;
-
-        return 0;
-    } else {
-        i_error("fts_elasticsearch: update_build_more: critical error building message body");
-
-        return -1;
-    }
+        context.tempBody ~= data[0..size];
 }
 
-extern(C) void fts_backend_elasticsearch_update_unset_build_key(fts_backend_update_context* _ctx)
+void unsetBuildKey(ref Context context)
 {
-    elasticsearch_fts_backend_update_context *ctx = null;
-
-    if (_ctx !is null) {
-        ctx = cast(elasticsearch_fts_backend_update_context*)_ctx;
-
-        /* field is complete, add it to our message. */
-        elasticsearch_add_update_field(ctx.temp, ctx.json_request, ctx.current_field, ctx.temp_body);
-
-        /* clean-up our temp */
-        str_truncate(ctx.temp_body, 0);
-        str_truncate(ctx.current_field, 0);
-    }
+    /* field is complete, add it to our message. */
+    updateField(context.jsonRequest, context.currentField, context.tempBody);
+    context.tempBody.length = 0;
+    context.currentField.length=0;
 }
 
-extern(C) void fts_backend_elasticsearch_update_expunge(fts_backend_update_context *_ctx, int uid)
+void updateExpunge(ref Context context, int uid)
 {
-    elasticsearch_fts_backend_update_context *ctx = cast(elasticsearch_fts_backend_update_context *)_ctx;
-
-    /* update the context to note that there have been expunges */
-    ctx.expunges = true;
-
+    context.expunges = true;
     /* add the delete action */
-    fts_backend_elasticsearch_bulk_start(ctx, uid, ctx.json_request, "delete");
+    bulkStart(context, uid, context.jsonRequest, BulkAction.delete_);
 }
 
-extern(C) int fts_backend_elasticsearch_refresh(fts_backend *_backend)
+void refresh(ref Backend backend)
 {
-    elasticsearch_fts_backend *backend = cast(elasticsearch_fts_backend *)_backend;
-
-    elasticsearch_connection_refresh(backend.elasticsearch_conn);
-
-    return 0;
+    refresh(backend.elasticsearchConnection);
 }
 
-extern(C) int fts_backend_elasticsearch_rescan(fts_backend *backend)
+auto rescan(ref Backend backend)
 {    
-    return fts_backend_reset_last_uids(backend);
+    return resetLastUIDs(backend);
 }
 
-extern(C) int fts_backend_elasticsearch_optimize(fts_backend *backend)
+void optimize(ref Backend backend)
 {
-    return 0;
 }
 
-extern(C) bool elasticsearch_add_definite_query(struct_mail_search_arg *arg, string_t *value, string_t *fields)
+auto addDefiniteQuery(ref MailSearchArg *arg, string value, string[] fields)
 {
     /* validate our input */
     if (arg is null || value is null || fields is null) {
@@ -619,30 +568,23 @@ extern(C) bool elasticsearch_add_definite_query(struct_mail_search_arg *arg, str
 
     return true;
 }
-extern(C) 
-bool elasticsearch_add_definite_query_args(string_t *fields, string_t *value, struct_mail_search_arg* arg)
+
+bool addDefiniteQueryArgs(string[] fields, string value, MailSearchArg[] args)
 {
-    bool field_added = false;
-
-    if (fields is null || value is null || arg is null) {
-        i_error("fts_elasticsearch: critical error while building query");
-
-        return false;
-    }
+    bool fieldAdded = false;
 
     for (; arg !is null; arg = arg.next) {
         /* multiple fields have an initial arg of nothing useful and subargs */
         if (arg.value.subargs !is null) {
-            field_added = elasticsearch_add_definite_query_args(fields, value,
-                arg.value.subargs);
+            field_added = addDefiniteQueryArgs(fields, value, arg.value.subargs);
         }
 
-        if (elasticsearch_add_definite_query(arg, value, fields)) {
+        if (addDefiniteQuery(arg, value, fields)) {
             /* the value is the same for every arg passed, only add the value
              * to our search json once. */
             if (!field_added) {
                 /* we always want to add the value */
-                str_append(value, es_query_escape(arg.value.str));
+                value~= es_query_escape(arg.value.str));
             }
 
             /* this is important to set. if this is false, Dovecot will fail
@@ -656,38 +598,29 @@ bool elasticsearch_add_definite_query_args(string_t *fields, string_t *value, st
     return field_added;
 }
 
-extern(C) int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox* box, struct_mail_search_arg* args, fts_lookup_flags flags, fts_result *result)
+int lookup(ref Backend backend, mailbox* box, struct_mail_search_arg* args, fts_lookup_flags flags, fts_result *result)
 {
     /* state tracking */
-    elasticsearch_result **es_results = null;
+    Result[] results;
+    //elasticsearch_result **es_results = null;
     bool and_args = (flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0;
 
     /* mailbox information */
-    struct_mailbox_status status;
+    MailboxStatus status;
     const(char)* box_guid = null;
 
     /* temp variables */
     pool_t pool = pool_alloconly_create("fts elasticsearch search", 1024);
     int ret = -1;
     size_t num_rows = 0;
-    /* json query building */
-    /*
-    string_t *str = str_new(pool, 1024);
-    string_t *query = str_new(pool, 1024);
-    string_t *fields = str_new(pool, 1024);
-*/
-    string_t *str = str_new( 1024);
-    string_t *query = str_new( 1024);
-    string_t *fields = str_new( 1024);
-    /* validate our input */
+    string str,query,fieldsString;
+
+    // validate our input
     if (_backend is null || box is null || args is null || result is null) {
         i_error("fts_elasticsearch: critical error during lookup");
 
         return -1;
     }
-
-    auto backend = cast (elasticsearch_fts_backend *) _backend;
-    
 
     /* get the mailbox guid */
     if (fts_mailbox_get_guid(box, &box_guid) < 0) {
@@ -695,7 +628,8 @@ extern(C) int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox* b
     }
 
     /* open the mailbox */
-    mailbox_get_open_status(box, MailboxStatusItems.uidNext, &status);
+    auto status = box.getOpenStatus(MailboxStatusItems.uidNext);
+
 
     /* default ES is limited to 10,000 results */
     /* TODO: paginate? */
@@ -706,16 +640,17 @@ extern(C) int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox* b
     }
 
     /* attempt to build the query */
-    if (!elasticsearch_add_definite_query_args(fields, query, args)) {
+    if (!addDefiniteQueryArgs(fields, query, args)) {
         return -1;
     }
 
     /* remove the trailing ',' */
-    str_delete(fields, str_len(fields) - 1, 1);
+    fieldsString.length = fieldsString.length -1;
 
     /* if no fields were added, add _all as our only field */
-    if (str_len(fields) == 0) {
-        str_append(fields, "\"_all\"");
+    if (fieldsString.length == 0)
+    {
+        fieldsString = `"_all"`;
     }
 
     /* parse the json */
@@ -727,7 +662,7 @@ extern(C) int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox* b
 
     /* build our fts_result return */
     //result.box = box;
-    result.scores_sorted = false;
+    result.scoresSorted = false;
 
     /* FTS_LOOKUP_FLAG_NO_AUTO_FUZZY says that exact matches for non-fuzzy searches
      * should go to maybe_uids instead of definite_uids. */
@@ -747,34 +682,3 @@ extern(C) int fts_backend_elasticsearch_lookup(fts_backend* _backend, mailbox* b
 
     return ret;
 }
-
-shared static this()
-{
-    struct_fts_backend_vfuncs vfuncs;
-    vfuncs.alloc =        &fts_backend_elasticsearch_alloc;
-    vfuncs.init =         &fts_backend_elasticsearch_init;
-    vfuncs.deinit =       &fts_backend_elasticsearch_deinit;
-    vfuncs.get_last_uid = &fts_backend_elasticsearch_get_last_uid;
-    vfuncs.update_init =  &fts_backend_elasticsearch_update_init;
-    vfuncs.update_deinit = &fts_backend_elasticsearch_update_deinit;
-    vfuncs.update_set_mailbox = &fts_backend_elasticsearch_update_set_mailbox;
-    vfuncs.update_expunge = &fts_backend_elasticsearch_update_expunge;
-    vfuncs.update_set_build_key = &fts_backend_elasticsearch_update_set_build_key;
-    vfuncs.update_unset_build_key = &fts_backend_elasticsearch_update_unset_build_key;
-    vfuncs.update_build_more = &fts_backend_elasticsearch_update_build_more;
-    vfuncs.refresh = &fts_backend_elasticsearch_refresh;
-    vfuncs.rescan = &fts_backend_elasticsearch_rescan;
-    vfuncs.optimize = &fts_backend_elasticsearch_optimize;
-    //vfuncs.can_lookup = &fts_backend_default_can_lookup;
-    vfuncs.lookup = &fts_backend_elasticsearch_lookup;
-    vfuncs.lookup_done = null;
-    
-    fts_backend_elasticsearch.name = "elasticsearch".ptr;
-    fts_backend_elasticsearch.flags = FTSBackendFlag.fuzzySearch;
-    fts_backend_elasticsearch.v = vfuncs;
-}
-
-    
-__gshared struct_fts_backend fts_backend_elasticsearch;
-
-
